@@ -5,7 +5,7 @@
 const Ledger = (() => {
   const ITEMS = CONFIG.items;
   const SLOTS = [
-    { key: 'weapon', label: 'Weapon', type: 'weapon', box: [2, 4] },
+    { key: 'weapon', label: 'Weapon', type: 'weapon', box: [4, 2] },
     { key: 'armor',  label: 'Armour', type: 'armor',  box: [2, 3] },
     { key: 'pack',   label: 'Pack',   type: 'pack',   box: [3, 3] },
   ];
@@ -230,7 +230,7 @@ const Ledger = (() => {
     if (it.type === 'weapon') return `Weapon · Attack ${it.atk}`;
     if (it.type === 'armor') return `Armour · Defence ${it.def}`;
     if (it.type === 'pack') return `Pack · holds ${it.cols} × ${it.rows}`;
-    return `Sundries · ${it.w} × ${it.h}`;
+    return `Supplies · ${it.w} × ${it.h}`;
   }
 
   function render() {

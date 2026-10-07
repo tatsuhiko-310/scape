@@ -55,36 +55,42 @@ const CONFIG = {
   pockets: { cols: 2, rows: 2 },
 
   items: {
-    dagger:     { name: 'Dagger',          type: 'weapon', w: 1, h: 2, atk: 1 },
-    sword:      { name: 'Sword',           type: 'weapon', w: 1, h: 3, atk: 2 },
-    spear:      { name: 'Spear',           type: 'weapon', w: 1, h: 4, atk: 2 },
-    bow:        { name: 'Bow',             type: 'weapon', w: 1, h: 3, atk: 2 },
-    axe:        { name: 'Battle Axe',      type: 'weapon', w: 2, h: 3, atk: 3 },
+    knife:      { name: 'Trench Knife',     type: 'weapon', w: 1, h: 2, atk: 1 },
+    pistol:     { name: 'Service Pistol',   type: 'weapon', w: 2, h: 1, atk: 1 },
+    shotgun:    { name: 'Trench Shotgun',   type: 'weapon', w: 3, h: 1, atk: 2 },
+    smg:        { name: 'Submachine Gun',   type: 'weapon', w: 3, h: 2, atk: 2 },
+    rifle:      { name: 'Bolt-Action Rifle', type: 'weapon', w: 4, h: 1, atk: 3 },
 
-    jerkin:     { name: 'Leather Jerkin',  type: 'armor',  w: 2, h: 2, def: 1 },
-    shield:     { name: 'Round Shield',    type: 'armor',  w: 2, h: 2, def: 1 },
-    chainmail:  { name: 'Chain Mail',      type: 'armor',  w: 2, h: 3, def: 2 },
-    plate:      { name: 'Plate Armour',    type: 'armor',  w: 2, h: 3, def: 3 },
+    helmet:     { name: 'Steel Helmet',     type: 'armor',  w: 2, h: 2, def: 1 },
+    flak:       { name: 'Flak Vest',        type: 'armor',  w: 2, h: 3, def: 2 },
+    carrier:    { name: 'Plate Carrier',    type: 'armor',  w: 2, h: 3, def: 3 },
+    shield:     { name: 'Ballistic Shield', type: 'armor',  w: 2, h: 3, def: 2 },
 
-    satchel:    { name: 'Satchel',         type: 'pack',   w: 2, h: 2, cols: 4, rows: 3 },
-    rucksack:   { name: 'Rucksack',        type: 'pack',   w: 2, h: 3, cols: 5, rows: 4 },
-    expedition: { name: 'Expedition Pack', type: 'pack',   w: 3, h: 3, cols: 6, rows: 5 },
+    haversack:  { name: 'Haversack',        type: 'pack',   w: 2, h: 2, cols: 4, rows: 3 },
+    fieldpack:  { name: 'Field Pack',       type: 'pack',   w: 2, h: 3, cols: 5, rows: 4 },
+    bergen:     { name: 'Bergen Rucksack',  type: 'pack',   w: 3, h: 3, cols: 6, rows: 5 },
 
-    potion:     { name: 'Potion',          type: 'misc',   w: 1, h: 1 },
-    bread:      { name: 'Bread',           type: 'misc',   w: 1, h: 1 },
-    key:        { name: 'Old Key',         type: 'misc',   w: 1, h: 1 },
-    pouch:      { name: 'Coin Pouch',      type: 'misc',   w: 1, h: 1 },
-    gem:        { name: 'Gem',             type: 'misc',   w: 1, h: 1 },
-    rope:       { name: 'Rope',            type: 'misc',   w: 1, h: 2 },
-    torch:      { name: 'Torch',           type: 'misc',   w: 1, h: 2 },
-    lantern:    { name: 'Lantern',         type: 'misc',   w: 1, h: 2 },
-    map:        { name: 'Map',             type: 'misc',   w: 2, h: 1 },
+    ration:     { name: 'Field Ration',     type: 'misc',   w: 2, h: 1 },
+    canteen:    { name: 'Canteen',          type: 'misc',   w: 1, h: 2 },
+    medkit:     { name: 'First Aid Kit',    type: 'misc',   w: 2, h: 1 },
+    bandage:    { name: 'Bandage',          type: 'misc',   w: 1, h: 1 },
+    morphine:   { name: 'Morphine Syrette', type: 'misc',   w: 1, h: 1 },
+    ammo:       { name: 'Ammunition Box',   type: 'misc',   w: 2, h: 1 },
+    grenade:    { name: 'Hand Grenade',     type: 'misc',   w: 1, h: 1 },
+    gasmask:    { name: 'Gas Mask',         type: 'misc',   w: 2, h: 2 },
+    radio:      { name: 'Field Radio',      type: 'misc',   w: 2, h: 2 },
+    binoculars: { name: 'Binoculars',       type: 'misc',   w: 2, h: 1 },
+    flashlight: { name: 'Flashlight',       type: 'misc',   w: 1, h: 2 },
+    compass:    { name: 'Compass',          type: 'misc',   w: 1, h: 1 },
+    map:        { name: 'Field Map',        type: 'misc',   w: 2, h: 1 },
+    dogtags:    { name: 'Dog Tags',         type: 'misc',   w: 1, h: 1 },
+    cigarettes: { name: 'Cigarettes',       type: 'misc',   w: 1, h: 1 },
   },
 
   // ゲーム開始時の持ち物
   starterKit: {
-    equip: { weapon: 'dagger', armor: null, pack: 'satchel' },
-    bag: ['bread', 'potion', 'torch'],
+    equip: { weapon: 'pistol', armor: 'helmet', pack: 'haversack' },
+    bag: ['ration', 'canteen', 'bandage', 'dogtags'],
   },
 };
 
@@ -103,6 +109,6 @@ const RULES = {
       log(`Witnesses report the square bore the mark "${[square.icon, square.name].filter(Boolean).join(' ')}".`);
     }
     // 例：「?」のマスで何か拾う
-    // if (square.icon === '?') { if (give(player, 'gem')) log(`${player.name} found a gem.`); }
+    // if (square.icon === '?') { if (give(player, 'medkit')) log(`${player.name} recovered a first aid kit.`); }
   },
 };
