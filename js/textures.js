@@ -83,8 +83,10 @@ const Textures = (() => {
     g.fillStyle = terrain.base;
     g.fillRect(0, 0, PX, PX);
     (patterns[terrainKey] || patterns.grass)(g, terrain.base, rng(index + 7));
-    g.fillStyle = shade(terrain.base, .12);        // 縁のハイライト
+    g.fillStyle = shade(terrain.base, .15);        // 縁のハイライト
     g.fillRect(0, 0, PX, 1); g.fillRect(0, 0, 1, PX);
+    g.fillStyle = shade(terrain.base, -.3);        // 縁の影（白黒でもマスの境目が見えるように）
+    g.fillRect(0, PX - 1, PX, 1); g.fillRect(PX - 1, 0, 1, PX);
 
     const big = document.createElement('canvas');
     big.width = big.height = SIZE;
@@ -98,12 +100,12 @@ const Textures = (() => {
     const label = (text, x, y, font, lw) => {
       c.font = font;
       c.lineWidth = lw;
-      c.strokeStyle = 'rgba(0,0,0,.55)';
+      c.strokeStyle = '#000';
       c.strokeText(text, x, y);
       c.fillStyle = '#fff';
       c.fillText(text, x, y);
     };
-    label(String(index), 20, 18, 'bold 24px sans-serif', 5);
+    label(String(index), 22, 20, 'bold 28px sans-serif', 7);
     if (sq.icon) label(sq.icon, SIZE / 2, sq.name ? 56 : SIZE / 2, 'bold 60px sans-serif', 6);
     if (sq.name) label(sq.name, SIZE / 2, sq.icon ? 104 : SIZE / 2, 'bold 24px sans-serif', 5);
     const tex = toTexture(big);

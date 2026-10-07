@@ -40,12 +40,13 @@
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   stage.prepend(renderer.domElement);
+  const dither = new Dither(renderer);
 
   const scene = new THREE.Scene();
-  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 70);
 
-  scene.add(new THREE.HemisphereLight(0xfff6e8, 0x6a7a8c, 1.6));
-  const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+  scene.add(new THREE.HemisphereLight(0xfff6e8, 0x4a5a6c, 0.9));
+  const sun = new THREE.DirectionalLight(0xffffff, 2.0);
   sun.position.set(center.x - 6, 12, center.z - 3);
   sun.target.position.copy(center);
   sun.castShadow = true;
@@ -56,7 +57,7 @@
 
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(80, 80),
-    new THREE.ShadowMaterial({ opacity: 0.18 }),
+    new THREE.ShadowMaterial({ opacity: 0.35, depthWrite: false }),
   );
   ground.rotation.x = -Math.PI / 2;
   ground.position.set(center.x, GROUND, center.z);
@@ -81,6 +82,7 @@
   function resize() {
     const w = stage.clientWidth, h = stage.clientHeight;
     renderer.setSize(w, h);
+    dither.setSize(w, h);
     const aspect = w / h;
     const span = (maxX - minX + maxZ - minZ + 6) / Math.SQRT2; // 斜めから見たときの幅
     const halfH = Math.max(span * 0.36, (span / 2 + 0.6) / aspect) / view.zoom;
@@ -114,7 +116,7 @@
       if (t >= 1) { tweens.delete(tw); tw.res(); }
     }
     for (const f of frameHooks) f(now / 1000);
-    renderer.render(scene, camera);
+    dither.render(scene, camera);
   });
 
   // ---------- マス ----------
@@ -267,24 +269,39 @@
     [0, 0], [0.2, 0], [0.21, 0.04], [0.17, 0.08], [0.11, 0.14], [0.08, 0.3],
     [0.07, 0.4], [0.13, 0.43], [0.13, 0.46], [0.05, 0.48], [0, 0.48],
   ].map(([x, y]) => new THREE.Vector2(x, y)), 24);
-  const headGeo = new THREE.SphereGeometry(0.115, 20, 14);
+  // プレイヤーごとに頭の形を変えて、白黒でも見分けられるようにする
+  const HEADS = {
+    sphere: () => new THREE.SphereGeometry(0.12, 20, 14),
+    cube:   () => new THREE.BoxGeometry(0.2, 0.2, 0.2).rotateY(Math.PI / 4),
+    cone:   () => new THREE.ConeGeometry(0.14, 0.26, 16),
+    gem:    () => new THREE.OctahedronGeometry(0.15),
+  };
+  const TONES = { light: '#f2f2f2', dark: '#262626' };
+  const SHAPE_GLYPH = { sphere: '●', cube: '■', cone: '▲', gem: '◆' };
   const ringGeo = new THREE.TorusGeometry(0.27, 0.025, 8, 32).rotateX(Math.PI / 2);
   const piecesGroup = new THREE.Group();
   scene.add(piecesGroup);
 
   function makePiece(player) {
-    const m = new THREE.MeshStandardMaterial({ color: player.color, roughness: 0.35, metalness: 0.05 });
+    const m = new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.05 });
     const g = new THREE.Group();
     const body = new THREE.Mesh(pawnGeo, m);
-    const head = new THREE.Mesh(headGeo, m);
-    head.position.y = 0.58;
+    const head = new THREE.Mesh(HEADS[player.shape](), m);
+    head.position.y = 0.6;
     body.castShadow = head.castShadow = true;
-    const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: player.color }));
+    const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial());
     ring.position.y = 0.02;
     g.add(body, head, ring);
-    g.userData = { player, ring };
+    g.scale.setScalar(1.3);
+    g.userData = { player, ring, material: m };
     piecesGroup.add(g);
+    paintPiece(player, g);
     return g;
+  }
+
+  // モノクロ時は白/黒、カラー時はプレイヤー色
+  function paintPiece(player, g = player.obj) {
+    g.userData.material.color.set(dither.options.enabled ? TONES[player.tone] : player.color);
   }
 
   // 手番のコマの足元の輪を脈動させる
@@ -293,6 +310,9 @@
       const { ring } = p.obj.userData;
       ring.visible = p.id === state.current;
       ring.scale.setScalar(1 + 0.12 * Math.sin(t * 5));
+      // どんな地面の上でも見えるよう白黒に点滅させる
+      if (dither.options.enabled) ring.material.color.setScalar(Math.sin(t * 6) > 0 ? 1 : 0);
+      else ring.material.color.set(p.color);
     }
   });
 
@@ -335,6 +355,8 @@
     renderPlayers();
   }
 
+  const chip = (p) => `<span class="chip ${p.tone}" style="--pc:${p.color}">${SHAPE_GLYPH[p.shape]}</span>`;
+
   function renderPlayers() {
     const ul = $('players');
     ul.innerHTML = '';
@@ -342,14 +364,14 @@
       const li = document.createElement('li');
       li.className = p.id === state.current ? 'current' : '';
       li.innerHTML = `
-        <span class="chip" style="--pc:${p.color}">${p.id + 1}</span>
+        ${chip(p)}
         <span class="pname">${p.name}</span>
         <span class="meta">マス ${p.pos} ・ ${p.laps}周</span>`;
       ul.appendChild(li);
     }
     const cur = state.players[state.current];
     $('turn').innerHTML = cur
-      ? `<span class="chip" style="--pc:${cur.color}">${cur.id + 1}</span> ${cur.name} の番`
+      ? `${chip(cur)} ${cur.name} の番`
       : '';
   }
 
@@ -606,6 +628,20 @@
 
   const ruleApi = { log, state };
 
+  // ---------- ビジュアル設定 ----------
+
+  function applyVisual() {
+    const o = dither.options;
+    o.enabled = $('vDither').checked;
+    o.pixelSize = Number($('vPixel').value);
+    o.contrast = Number($('vContrast').value);
+    o.edges = $('vEdges').checked;
+    document.body.classList.toggle('mono', o.enabled);
+    for (const p of state.players) paintPiece(p);
+    resize();
+  }
+  for (const id of ['vDither', 'vPixel', 'vContrast', 'vEdges']) $(id).addEventListener('input', applyVisual);
+
   // ---------- 起動 ----------
 
   function reset() {
@@ -634,6 +670,8 @@
   buildBoard();
   buildLandmarks();
   reset();
+  if (stage.clientWidth < 600) $('vPixel').value = 1; // 小さい画面ではドットを細かく
+  applyVisual();
 
   window.scape = { state, rotateView, camera, cells }; // デバッグ用
 })();

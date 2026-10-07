@@ -7,11 +7,11 @@ const CONFIG = {
 
   // 地形（マスの見た目）。base = 地面の色, side = 側面の色
   terrains: {
-    grass: { label: '草原', base: '#58b947', side: '#3c7d2f' },
-    sand:  { label: '砂漠', base: '#dcb54a', side: '#9c7a26' },
-    water: { label: '水辺', base: '#3d8fe0', side: '#245e9e' },
-    lava:  { label: '溶岩', base: '#d9472b', side: '#8a2716' },
-    stone: { label: '石畳', base: '#b9b3a8', side: '#7a7368' },
+    grass: { label: '草原', base: '#4f9a3c', side: '#2c5a22' },
+    sand:  { label: '砂漠', base: '#e3c766', side: '#9c7a26' },
+    water: { label: '水辺', base: '#3a73b8', side: '#1d406e' },
+    lava:  { label: '溶岩', base: '#b8361f', side: '#5e1a0e' },
+    stone: { label: '石畳', base: '#cfcac0', side: '#7a7368' },
   },
 
   // 範囲ごとの地形。[開始, 終了(含む), 地形]
@@ -40,11 +40,12 @@ const CONFIG = {
     { at: 15, kind: 'castle' },
   ],
 
+  // shape: 頭の形 / tone: モノクロ表示での色（light=白, dark=黒）/ color: カラー表示での色
   players: [
-    { name: 'あか',   color: '#e2504c' },
-    { name: 'あお',   color: '#3d7fd9' },
-    { name: 'みどり', color: '#3aa564' },
-    { name: 'きいろ', color: '#e6b422' },
+    { name: 'まる',     shape: 'sphere', tone: 'light', color: '#e2504c' },
+    { name: 'しかく',   shape: 'cube',   tone: 'dark',  color: '#3d7fd9' },
+    { name: 'さんかく', shape: 'cone',   tone: 'light', color: '#3aa564' },
+    { name: 'ひし',     shape: 'gem',    tone: 'dark',  color: '#e6b422' },
   ],
 };
 
