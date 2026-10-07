@@ -64,9 +64,52 @@
   ground.receiveShadow = true;
   scene.add(ground);
 
+  // ---------- サイコロ専用の小さな舞台（これもディザを通す） ----------
+
+  const diceStage = $('diceStage');
+  const diceRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  diceRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  diceRenderer.shadowMap.enabled = true;
+  diceRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  diceStage.prepend(diceRenderer.domElement);
+  const diceDither = new Dither(diceRenderer);
+  diceDither.options = dither.options; // ドットの大きさなどはボードと共通
+  diceDither.vignette = 0.2;
+
+  const diceScene = new THREE.Scene();
+  const diceCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 40);
+  {
+    const a = Math.PI / 4, e = Math.PI * 0.24, R = 12;
+    diceCamera.position.set(Math.cos(a) * Math.cos(e) * R, Math.sin(e) * R, Math.sin(a) * Math.cos(e) * R);
+    diceCamera.lookAt(0, 0.2, 0);
+    diceScene.add(new THREE.HemisphereLight(0xfff6e8, 0x4a5a6c, 0.9));
+    const lamp = new THREE.DirectionalLight(0xffffff, 2.0);
+    lamp.position.set(-3, 6, 1);
+    lamp.castShadow = true;
+    lamp.shadow.mapSize.set(512, 512);
+    Object.assign(lamp.shadow.camera, { left: -3, right: 3, top: 3, bottom: -3 });
+    diceScene.add(lamp);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.ShadowMaterial({ opacity: 0.35, depthWrite: false }));
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    diceScene.add(floor);
+  }
+
+  function resizeDice() {
+    const w = diceStage.clientWidth, h = diceStage.clientHeight;
+    if (!w || !h) return;
+    diceRenderer.setSize(w, h);
+    diceDither.setSize(w, h);
+    const aspect = w / h;
+    const halfH = Math.max(0.72, 1.3 / aspect);
+    Object.assign(diceCamera, { left: -halfH * aspect, right: halfH * aspect, top: halfH, bottom: -halfH });
+    diceCamera.updateProjectionMatrix();
+  }
+  new ResizeObserver(resizeDice).observe(diceStage);
+
   // ---------- カメラ（アイソメトリック） ----------
 
-  const DEFAULT_VIEW = { angle: Math.PI * 1.25, elev: Math.PI / 6, zoom: 1.25 }; // 30° 見下ろし（2:1 アイソメ）
+  const DEFAULT_VIEW = { angle: Math.PI * 1.25, elev: Math.PI / 6, zoom: 1.05 }; // 30° 見下ろし（2:1 アイソメ）
   const view = { ...DEFAULT_VIEW };
   const ELEV_MIN = Math.PI / 18, ELEV_MAX = Math.PI / 2 - 0.01; // 10°〜ほぼ真上
   const ZOOM_MIN = 0.5, ZOOM_MAX = 4;
@@ -148,6 +191,7 @@
     }
     for (const f of frameHooks) f(now / 1000);
     dither.render(scene, camera);
+    diceDither.render(diceScene, diceCamera);
   });
 
   // ---------- マス ----------
@@ -388,20 +432,24 @@
   const chip = (p) => `<span class="chip ${p.tone}">${SHAPE_GLYPH[p.shape]}</span>`;
 
   function renderPlayers() {
-    const tbody = $('players');
-    tbody.innerHTML = '';
-    for (const p of state.players) {
-      const tr = document.createElement('tr');
-      tr.className = p.id === state.current ? 'current' : '';
-      const st = Ledger.stats(p);
-      tr.innerHTML = `<td>${chip(p)}</td><td>${p.name}</td><td>${st.atk}</td><td>${st.def}</td><td>${p.pos}</td><td>${p.laps}</td>`;
-      tbody.appendChild(tr);
-    }
     for (const p of state.players) p.current = p.id === state.current;
     Ledger.render();
+    renderLocation();
     const cur = state.players[state.current];
     $('onMove').innerHTML = cur ? `Now on the move: ${chip(cur)} ${cur.name}` : '';
   }
+
+  // 手番のプレイヤーが今いる場所
+  function renderLocation() {
+    const cur = state.players[state.current];
+    if (!cur) return;
+    const sq = state.squares[cur.pos];
+    const others = state.players.filter((p) => p !== cur && p.pos === cur.pos);
+    $('locWho').innerHTML = `Location · ${chip(cur)} ${cur.name}`;
+    $('locTitle').textContent = Press.placeTitle(cur.pos, sq);
+    $('locBody').textContent = Press.locationNote(cur, sq, others);
+  }
+
 
 
   // ---------- サイコロ（3D） ----------
@@ -418,21 +466,21 @@
   const UP = new THREE.Vector3(0, 1, 0);
 
   function setupDice(count) {
-    for (const d of state.dice) scene.remove(d);
+    for (const d of state.dice) diceScene.remove(d);
     state.dice = Array.from({ length: count }, (_, i) => {
       const d = new THREE.Mesh(dieGeo, dieMats);
       d.castShadow = true;
       d.position.copy(diceSpot(i, count));
       d.quaternion.setFromUnitVectors(FACE_NORMAL[1], UP);
-      scene.add(d);
+      diceScene.add(d);
       return d;
     });
     $('diceTotal').textContent = '—';
   }
 
   function diceSpot(i, count) {
-    const off = (i - (count - 1) / 2) * 0.9;
-    return new THREE.Vector3(center.x + off, GROUND + 0.3, center.z + (i % 2) * 0.3);
+    const off = (i - (count - 1) / 2) * 0.85;
+    return new THREE.Vector3(off * 0.7, 0.3, -off * 0.7 + (i % 2) * 0.25);
   }
 
   function rollDie(die, i, count) {
@@ -440,8 +488,8 @@
     const end = diceSpot(i, count);
     end.x += (Math.random() - 0.5) * 0.3;
     end.z += (Math.random() - 0.5) * 0.3;
-    // カメラ手前側から投げ込む
-    const start = end.clone().add(new THREE.Vector3(Math.cos(view.angle) * 2.5, 0, Math.sin(view.angle) * 2.5));
+    // 手前側から投げ込む
+    const start = end.clone().add(new THREE.Vector3(1.8, 0, 1.8));
     const qEnd = new THREE.Quaternion().setFromUnitVectors(FACE_NORMAL[value], UP)
       .premultiply(new THREE.Quaternion().setFromAxisAngle(UP, Math.random() * Math.PI * 2));
     const axis = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
@@ -449,7 +497,7 @@
     const qSpin = new THREE.Quaternion();
     return tween(1100 + i * 120, (t) => {
       die.position.lerpVectors(start, end, ease(t));
-      die.position.y = end.y + 2.2 * Math.pow(1 - t, 2) * Math.abs(Math.cos(Math.PI * 2.5 * t));
+      die.position.y = end.y + 1.1 * Math.pow(1 - t, 2) * Math.abs(Math.cos(Math.PI * 2.5 * t));
       qSpin.setFromAxisAngle(axis, Math.pow(1 - t, 2) * spin);
       die.quaternion.copy(qEnd).multiply(qSpin);
     }).then(() => value);

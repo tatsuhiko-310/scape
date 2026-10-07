@@ -57,9 +57,30 @@ const Press = (() => {
       'The rules, sources say, are still being written.';
   }
 
+  // ロケーション欄
+  const TERRAIN_NOTES = {
+    grass: 'Open meadow. Good going underfoot, and very little cover.',
+    sand: 'Desert country. The heat slows every step and the wind fills every pack.',
+    water: 'Low ground by the water. Nobody keeps their boots dry here for long.',
+    lava: 'Scorched fields, still smoking from the last bombardment.',
+    stone: 'Cobbled ground in the shadow of the fortifications.',
+  };
+
+  function placeTitle(pos, sq) {
+    return `Square ${pos} — ${sq.name ? titleCase(sq.name) : `The ${terrainName(sq)}`}`;
+  }
+
+  function locationNote(player, sq, others) {
+    const lines = [TERRAIN_NOTES[sq.terrain] || ''];
+    if (sq.icon) lines.push(`A mark reading "${sq.icon}" has been chalked on the ground.`);
+    if (others.length) lines.push(`Also here: ${others.map((p) => p.name).join(', ')}.`);
+    lines.push(player.laps ? `${player.name} is on lap ${player.laps + 1}.` : `${player.name} has yet to complete a lap.`);
+    return lines.join(' ');
+  }
+
   function titleCase(s) {
     return s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
-  return { word, turnHeadline, turnBody, openingHeadline, openingBody };
+  return { word, turnHeadline, turnBody, openingHeadline, openingBody, placeTitle, locationNote };
 })();

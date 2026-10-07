@@ -28,6 +28,7 @@ class Dither {
         brightness: { value: 0 },
         edges: { value: 1 },
         edgeThreshold: { value: 0.003 },
+        vignette: { value: 0.55 },
         ink: { value: new THREE.Color(0x1c / 255, 0x1b / 255, 0x1a / 255) },
         paper: { value: new THREE.Color(0xf2 / 255, 0xf0 / 255, 0xea / 255) },
       },
@@ -37,7 +38,7 @@ class Dither {
       fragmentShader: /* glsl */ `
         uniform sampler2D tColor, tDepth, tBayer;
         uniform vec2 res;
-        uniform float contrast, brightness, edges, edgeThreshold;
+        uniform float contrast, brightness, edges, edgeThreshold, vignette;
         uniform vec3 ink, paper;
         varying vec2 vUv;
 
@@ -48,7 +49,7 @@ class Dither {
 
           // 何も描かれていない所は、中心が明るいビネットの背景
           vec2 q = (uv - vec2(0.5, 0.55)) * vec2(res.x / res.y, 1.0);
-          float bg = 1.0 - 0.55 * pow(clamp(length(q) * 1.1, 0.0, 1.0), 1.8);
+          float bg = 1.0 - vignette * pow(clamp(length(q) * 1.1, 0.0, 1.0), 1.8);
           vec3 rgb = pow(max(c.rgb, 0.0), vec3(1.0 / 2.2)) + vec3(bg) * (1.0 - c.a);
 
           float l = dot(rgb, vec3(0.299, 0.587, 0.114));
@@ -78,6 +79,7 @@ class Dither {
     this.quadScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.material));
     this.quadCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     this.cssSize = [1, 1];
+    this.vignette = 0.55; // 背景の周辺の暗さ
   }
 
   // n×n の Bayer 行列（しきい値 0〜1）をテクスチャにする
@@ -122,6 +124,7 @@ class Dither {
     u.contrast.value = this.options.contrast;
     u.brightness.value = this.options.brightness;
     u.edges.value = this.options.edges ? 1 : 0;
+    u.vignette.value = this.vignette;
     // 深度 0.15 ワールド単位ぶんの段差で線を引く（正投影なので深度は線形）
     u.edgeThreshold.value = 0.15 / (camera.far - camera.near);
 

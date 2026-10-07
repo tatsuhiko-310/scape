@@ -24,80 +24,75 @@
       </div>
     </header>
 
-    <div class="front">
-      <!-- 左：動く写真（3D ボード）と手番 -->
-      <section class="photo-col">
-        <figure class="photo">
-          <div class="stage" id="stage">
-            <div class="view-btns">
-              <button class="link" id="zoomOut" title="Zoom out (-)">−</button>
-              <button class="link" id="zoomIn" title="Zoom in (+)">+</button>
-              <button class="link" id="viewReset" title="Reset view (R)">Reset</button>
-            </div>
+    <div class="desk">
+      <!-- 左上：ボード（動く写真） -->
+      <figure class="photo">
+        <div class="stage" id="stage">
+          <div class="view-btns">
+            <button class="link" id="zoomOut" title="Zoom out (-)">−</button>
+            <button class="link" id="zoomIn" title="Zoom in (+)">+</button>
+            <button class="link" id="viewReset" title="Reset view (R)">Reset</button>
           </div>
-          <figcaption>
-            <b>Fig. 1</b> — The course of thirty squares, photographed live.
-            Drag to turn the view, scroll or pinch to zoom; drag a piece to move it by hand,
-            click a square to rewrite it.
-          </figcaption>
-        </figure>
+        </div>
+        <figcaption>
+          <b>Fig. 1</b> — The course of thirty squares, photographed live.
+          Drag to turn the view, scroll or pinch to zoom; drag a piece to move it by hand,
+          click a square to rewrite it.
+        </figcaption>
+      </figure>
 
-        <div class="roll-bar">
+      <!-- 右上：ロケーション・サイコロ・ダイスロール -->
+      <aside class="side">
+        <article class="location">
+          <span class="kicker" id="locWho">Location</span>
+          <h2 id="locTitle"></h2>
+          <p id="locBody"></p>
+          <hr>
+          <div class="lead" id="lead">
+            <span class="kicker">Latest dispatch</span>
+            <h3 id="leadHead"></h3>
+            <p id="leadBody"></p>
+          </div>
+        </article>
+
+        <div class="dice-box">
+          <div class="dice-stage" id="diceStage"></div>
           <div class="die-reading">
             <span class="kicker">The die reads</span>
             <span class="reading" id="diceTotal">—</span>
           </div>
-          <button class="roll" id="rollBtn">Roll the Die</button>
         </div>
-      </section>
+        <button class="roll" id="rollBtn">Roll the Die</button>
+      </aside>
 
-      <!-- 右：トップ記事・順位・過去の記事 -->
-      <section class="news-col">
-        <article class="lead" id="lead">
-          <span class="kicker">Latest</span>
-          <h2 id="leadHead"></h2>
-          <p id="leadBody"></p>
-        </article>
-
-        <hr>
-
-        <section class="standings">
-          <h3>Standings</h3>
-          <table>
-            <thead><tr><th></th><th>Player</th><th title="Attack">Atk</th><th title="Defence">Def</th><th>Square</th><th>Laps</th></tr></thead>
-            <tbody id="players"></tbody>
-          </table>
-        </section>
-
-        <hr>
-
-        <section class="archive">
-          <h3>Earlier Reports</h3>
-          <div id="archive"></div>
-        </section>
+      <!-- 下段：プレイヤー 1〜4 のボード -->
+      <section class="ledger">
+        <header class="ledger-head">
+          <h2>The Players' Ledger</h2>
+          <p class="deck">Drag goods between slots and packs · double-click (or R while dragging) to turn an item</p>
+          <p class="notice" id="ledgerNotice" aria-live="polite"></p>
+          <button class="link" id="depotToggle" aria-expanded="false">Supply Depot →</button>
+        </header>
+        <div class="boards" id="boards"></div>
       </section>
     </div>
 
+    <!-- 補給所：右から出てくる差し込み -->
+    <aside class="depot" id="depot" aria-hidden="true">
+      <header>
+        <h3>Supply Depot</h3>
+        <button class="link" id="depotClose">Close ✕</button>
+      </header>
+      <p class="deck">By order of the quartermaster: all goods issued free of charge to any player.
+        Drag into a pack or a slot; drop here to give an item up.</p>
+      <div class="depot-items" id="depotItems"></div>
+    </aside>
+
     <hr class="double">
 
-    <!-- プレイヤーボード -->
-    <section class="ledger">
-      <header class="ledger-head">
-        <span class="kicker">Section B</span>
-        <h2>The Players' Ledger</h2>
-        <p class="deck">Personal effects of every piece on the course, as filed with this paper.
-          Drag goods between the slots and the packs; double-click an item (or press R while dragging) to turn it;
-          drop it on the Supply Depot to give it up.</p>
-        <p class="notice" id="ledgerNotice" aria-live="polite"></p>
-      </header>
-      <div class="ledger-body">
-        <div class="boards" id="boards"></div>
-        <aside class="depot">
-          <h3>Supply Depot</h3>
-          <p class="deck">By order of the quartermaster: all goods issued free of charge to any player. Drag into a pack or a slot.</p>
-          <div class="depot-items" id="depotItems"></div>
-        </aside>
-      </div>
+    <section class="archive">
+      <h3>Earlier Reports</h3>
+      <div id="archive"></div>
     </section>
 
     <hr class="double">

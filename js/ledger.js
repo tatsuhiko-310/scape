@@ -238,6 +238,13 @@ const Ledger = (() => {
     if (!root) return;
     root.innerHTML = '';
     for (const p of players) root.appendChild(renderBoard(p));
+    // 空いている席（最大 4 人）
+    for (let i = players.length; i < CONFIG.players.length; i++) {
+      const art = document.createElement('article');
+      art.className = 'board vacant';
+      art.innerHTML = `<h3>Player ${i + 1}</h3><p class="stats"><i>Seat vacant.</i> Raise the number of players under “Notice to Players” to fill it.</p>`;
+      root.appendChild(art);
+    }
     renderDepot();
   }
 
@@ -250,7 +257,7 @@ const Ledger = (() => {
     art.className = 'board' + (p.current ? ' current' : '');
     art.innerHTML = `
       <h3>${chip(p)} ${p.name}${p.current ? ' <i>— to play</i>' : ''}</h3>
-      <p class="stats">Attack <b>${st.atk}</b> · Defence <b>${st.def}</b> · Load <b>${used}/${cols * rows}</b></p>
+      <p class="stats">Square <b>${p.pos}</b> · Lap <b>${p.laps}</b> · Attack <b>${st.atk}</b> · Defence <b>${st.def}</b> · Load <b>${used}/${cols * rows}</b></p>
       <div class="slots"></div>
       <div class="bag-head">
         <span>${inv.equip.pack ? ITEMS[inv.equip.pack.id].name : 'Pockets'}, ${cols} × ${rows}</span>
@@ -261,7 +268,7 @@ const Ledger = (() => {
     const slotsEl = $('.slots', art);
     for (const s of SLOTS) {
       const fig = document.createElement('figure');
-      fig.className = 'slot';
+      fig.className = `slot slot-${s.key}`;
       fig.dataset.pid = p.id;
       fig.dataset.slot = s.key;
       fig.innerHTML = `<div class="slot-box" style="--bw:${s.box[0]};--bh:${s.box[1]}"></div>
@@ -422,6 +429,20 @@ const Ledger = (() => {
   }, true);
   window.addEventListener('contextmenu', (e) => {
     if (drag?.moved) { e.preventDefault(); rotateDrag(); updateDrag(); }
+  });
+
+  // 補給所の差し込み（右から出てくる）
+  function toggleDepot(open) {
+    const el = $('#depot');
+    if (!el) return;
+    open = open ?? !el.classList.contains('open');
+    el.classList.toggle('open', open);
+    el.setAttribute('aria-hidden', String(!open));
+    $('#depotToggle')?.setAttribute('aria-expanded', String(open));
+  }
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#depotToggle')) toggleDepot();
+    if (e.target.closest('#depotClose')) toggleDepot(false);
   });
 
   return {
