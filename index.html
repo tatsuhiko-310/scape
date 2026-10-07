@@ -64,7 +64,7 @@
         <section class="standings">
           <h3>Standings</h3>
           <table>
-            <thead><tr><th></th><th>Player</th><th>Square</th><th>Laps</th></tr></thead>
+            <thead><tr><th></th><th>Player</th><th title="Attack">Atk</th><th title="Defence">Def</th><th>Square</th><th>Laps</th></tr></thead>
             <tbody id="players"></tbody>
           </table>
         </section>
@@ -77,6 +77,28 @@
         </section>
       </section>
     </div>
+
+    <hr class="double">
+
+    <!-- プレイヤーボード -->
+    <section class="ledger">
+      <header class="ledger-head">
+        <span class="kicker">Section B</span>
+        <h2>The Players' Ledger</h2>
+        <p class="deck">Personal effects of every piece on the course, as filed with this paper.
+          Drag goods between the slots and the packs; double-click an item (or press R while dragging) to turn it;
+          drop it on the Supply Depot to give it up.</p>
+        <p class="notice" id="ledgerNotice" aria-live="polite"></p>
+      </header>
+      <div class="ledger-body">
+        <div class="boards" id="boards"></div>
+        <aside class="depot">
+          <h3>Supply Depot</h3>
+          <p class="deck">Classified. All goods free of charge to any player. Drag into a pack or a slot.</p>
+          <div class="depot-items" id="depotItems"></div>
+        </aside>
+      </div>
+    </section>
 
     <hr class="double">
 
@@ -136,6 +158,8 @@
   <script src="js/textures.js"></script>
   <script src="js/dither.js"></script>
   <script src="js/press.js"></script>
+  <script src="js/items.js"></script>
+  <script src="js/ledger.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

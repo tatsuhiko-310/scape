@@ -47,10 +47,50 @@ const CONFIG = {
     { name: 'Triangle', shape: 'cone',   tone: 'light' },
     { name: 'Diamond',  shape: 'gem',    tone: 'dark' },
   ],
+
+  // ---------- 持ち物 ----------
+  // type: weapon / armor / pack / misc
+  // w×h: バックパックの中で占めるマス数（回転すると入れ替わる）
+  // pack は cols×rows が中身のマス数。何も背負っていないときは pockets の大きさ
+  pockets: { cols: 2, rows: 2 },
+
+  items: {
+    dagger:     { name: 'Dagger',          type: 'weapon', w: 1, h: 2, atk: 1 },
+    sword:      { name: 'Sword',           type: 'weapon', w: 1, h: 3, atk: 2 },
+    spear:      { name: 'Spear',           type: 'weapon', w: 1, h: 4, atk: 2 },
+    bow:        { name: 'Bow',             type: 'weapon', w: 1, h: 3, atk: 2 },
+    axe:        { name: 'Battle Axe',      type: 'weapon', w: 2, h: 3, atk: 3 },
+
+    jerkin:     { name: 'Leather Jerkin',  type: 'armor',  w: 2, h: 2, def: 1 },
+    shield:     { name: 'Round Shield',    type: 'armor',  w: 2, h: 2, def: 1 },
+    chainmail:  { name: 'Chain Mail',      type: 'armor',  w: 2, h: 3, def: 2 },
+    plate:      { name: 'Plate Armour',    type: 'armor',  w: 2, h: 3, def: 3 },
+
+    satchel:    { name: 'Satchel',         type: 'pack',   w: 2, h: 2, cols: 4, rows: 3 },
+    rucksack:   { name: 'Rucksack',        type: 'pack',   w: 2, h: 3, cols: 5, rows: 4 },
+    expedition: { name: 'Expedition Pack', type: 'pack',   w: 3, h: 3, cols: 6, rows: 5 },
+
+    potion:     { name: 'Potion',          type: 'misc',   w: 1, h: 1 },
+    bread:      { name: 'Bread',           type: 'misc',   w: 1, h: 1 },
+    key:        { name: 'Old Key',         type: 'misc',   w: 1, h: 1 },
+    pouch:      { name: 'Coin Pouch',      type: 'misc',   w: 1, h: 1 },
+    gem:        { name: 'Gem',             type: 'misc',   w: 1, h: 1 },
+    rope:       { name: 'Rope',            type: 'misc',   w: 1, h: 2 },
+    torch:      { name: 'Torch',           type: 'misc',   w: 1, h: 2 },
+    lantern:    { name: 'Lantern',         type: 'misc',   w: 1, h: 2 },
+    map:        { name: 'Map',             type: 'misc',   w: 2, h: 1 },
+  },
+
+  // ゲーム開始時の持ち物
+  starterKit: {
+    equip: { weapon: 'dagger', armor: null, pack: 'satchel' },
+    bag: ['bread', 'potion', 'torch'],
+  },
 };
 
 // ルールのフック。ルールが決まったらここに処理を書く。
 // main.js から呼ばれる。log(text) で書いた文は、その手番の記事の本文に載る（英文推奨）。
+// give(player, itemId) で持ち物を渡せる（入らなければ false）。stats(player) で { atk, def } が取れる。
 const RULES = {
   // スタートを通過/到着したとき
   onPassStart(player, { log }) {
@@ -62,5 +102,7 @@ const RULES = {
     if (square.name || square.icon) {
       log(`Witnesses report the square bore the mark "${[square.icon, square.name].filter(Boolean).join(' ')}".`);
     }
+    // 例：「?」のマスで何か拾う
+    // if (square.icon === '?') { if (give(player, 'gem')) log(`${player.name} found a gem.`); }
   },
 };

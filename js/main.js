@@ -381,6 +381,7 @@
       p.obj.position.copy(slotOf(p));
     }
     state.current = 0;
+    Ledger.setup(state.players);
     renderPlayers();
   }
 
@@ -392,9 +393,12 @@
     for (const p of state.players) {
       const tr = document.createElement('tr');
       tr.className = p.id === state.current ? 'current' : '';
-      tr.innerHTML = `<td>${chip(p)}</td><td>${p.name}</td><td>${p.pos}</td><td>${p.laps}</td>`;
+      const st = Ledger.stats(p);
+      tr.innerHTML = `<td>${chip(p)}</td><td>${p.name}</td><td>${st.atk}</td><td>${st.def}</td><td>${p.pos}</td><td>${p.laps}</td>`;
       tbody.appendChild(tr);
     }
+    for (const p of state.players) p.current = p.id === state.current;
+    Ledger.render();
     const cur = state.players[state.current];
     $('onMove').innerHTML = cur ? `Now on the move: ${chip(cur)} ${cur.name}` : '';
   }
@@ -749,7 +753,8 @@
   }
 
   const word = (n) => Press.word(n);
-  const ruleApi = { log, state };
+  const ruleApi = { log, state, give: Ledger.give, stats: Ledger.stats };
+  Ledger.init({ onChange: () => renderPlayers() });
 
   // ---------- ビジュアル設定（モノクロ・ディザは固定） ----------
 

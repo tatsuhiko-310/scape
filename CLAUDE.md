@@ -16,6 +16,8 @@
 
 - `js/config.js` … コース・地形・プレイヤー・ルールのフック（`RULES`）
 - `js/press.js` … 記事の文面
+- `js/ledger.js` … プレイヤーボード（装備枠・バックパックのマス目・補給所・ドラッグ操作）
+- `js/items.js` … 持ち物の挿絵（canvas で描いて Bayer ディザで 2 値化）。持ち物の種類は `CONFIG.items`
 - `js/main.js` … 3D シーン・操作・ターン進行・紙面の更新
 - `js/dither.js` … モノクロ・ディザのポストエフェクト
 - ビルド不要。`index.html` を開けば動く（Three.js r160 は `vendor/` に同梱）
