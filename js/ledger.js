@@ -242,10 +242,28 @@ const Ledger = (() => {
     for (let i = players.length; i < CONFIG.players.length; i++) {
       const art = document.createElement('article');
       art.className = 'board vacant';
-      art.innerHTML = `<h3>Player ${i + 1}</h3><p class="stats"><i>Seat vacant.</i> Raise the number of players under “Notice to Players” to fill it.</p>`;
+      art.dataset.seat = i;
+      art.innerHTML = `<h3><span class="nameplate">Player ${i + 1}</span></h3><div class="portrait-space"></div><p class="stats"><i>Seat vacant.</i> Raise the number of players under “Notice to Players” to fill it.</p>`;
       root.appendChild(art);
     }
     renderDepot();
+    paintPortraits();
+  }
+
+  // 各ボードの背景にプレイヤーの写真（ディザ）を敷く
+  function paintPortraits() {
+    const root = $('#boards');
+    if (!root) return;
+    for (const art of root.children) {
+      const seat = Number(art.dataset.seat);
+      const vacant = art.classList.contains('vacant');
+      Portraits.apply(art, vacant ? CONFIG.players[seat] : players[seat], { wash: vacant ? 0.35 : 0 });
+    }
+  }
+  if (window.ResizeObserver) {
+    let t = 0;
+    new ResizeObserver(() => { clearTimeout(t); t = setTimeout(paintPortraits, 120); })
+      .observe(document.documentElement);
   }
 
   function renderBoard(p) {
@@ -255,9 +273,11 @@ const Ledger = (() => {
     const used = inv.bag.reduce((n, e) => n + ITEMS[e.id].w * ITEMS[e.id].h, 0);
     const art = document.createElement('article');
     art.className = 'board' + (p.current ? ' current' : '');
+    art.dataset.seat = p.id;
     art.innerHTML = `
-      <h3>${chip(p)} ${p.name}${p.current ? ' <i>— to play</i>' : ''}</h3>
+      <h3><span class="nameplate">${chip(p)} ${p.name}</span>${p.current ? ' <i>— to play</i>' : ''}</h3>
       <p class="stats">Square <b>${p.pos}</b> · Lap <b>${p.laps}</b> · Attack <b>${st.atk}</b> · Defence <b>${st.def}</b> · Load <b>${used}/${cols * rows}</b></p>
+      <div class="portrait-space"></div>
       <div class="slots"></div>
       <div class="bag-head">
         <span>${inv.equip.pack ? ITEMS[inv.equip.pack.id].name : 'Pockets'}, ${cols} × ${rows}</span>
@@ -447,7 +467,7 @@ const Ledger = (() => {
 
   return {
     init(opts) { onChange = opts.onChange || onChange; },
-    setup, render, give, stats,
+    setup, render, give, stats, repaint: paintPortraits,
     isDragging: () => !!drag,
   };
 })();

@@ -1,0 +1,85 @@
+// プレイヤーボードの背景写真。グレーの写真を読み込み、ボードの大きさに合わせて
+// Bayer ディザで ink / paper の 2 値にする（ドットの大きさ・コントラストはボードと共通）。
+
+const Portraits = (() => {
+  const { BAYER, INK, PAPER } = ItemArt;
+  const look = { pixelSize: 2, contrast: 1.35 };
+  const images = new Map();
+  const cache = new Map();
+
+  function load(src) {
+    if (!images.has(src)) {
+      images.set(src, new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      }));
+    }
+    return images.get(src);
+  }
+
+  const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+  // 写真は上 60% に収め、下に向かって紙の色へ溶かす（持ち物のマス目を読みやすくするため）
+  function draw(img, W, H, [fx, fy], wash) {
+    const cv = document.createElement('canvas');
+    cv.width = W;
+    cv.height = H;
+    const c = cv.getContext('2d');
+    const PH = H * 0.6;
+    const s = Math.max(W / img.width, PH / img.height) * 1.25; // 顔に少し寄る
+    const iw = img.width * s, ih = img.height * s;
+    const dx = Math.min(0, Math.max(W - iw, W * 0.55 - fx * iw));
+    const dy = Math.min(0, Math.max(PH - ih, PH * 0.45 - fy * ih)); // 顔が名札の下の空き（portrait-space）に来るように
+    c.fillStyle = '#fff';
+    c.fillRect(0, 0, W, H);
+    c.drawImage(img, dx, dy, iw, ih);
+
+    const data = c.getImageData(0, 0, W, H);
+    const d = data.data;
+    for (let y = 0; y < H; y++) {
+      const fade = Math.max(smooth(PH * 0.5, PH, y), y >= ih + dy ? 1 : 0);
+      for (let x = 0; x < W; x++) {
+        const i = (y * W + x) * 4;
+        let l = d[i] / 255;
+        // 写真は少し柔らかめ・明るめに（顔が潰れないように）
+        l = Math.pow(l, 0.8);
+        l = (l - 0.5) * (1 + (look.contrast - 1) * 0.5) + 0.5 + 0.04;
+        l = l + (1 - l) * Math.max(fade, wash);
+        const col = l > BAYER[y % 8][x % 8] ? PAPER : INK;
+        d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255;
+      }
+    }
+    c.putImageData(data, 0, 0);
+    return cv.toDataURL();
+  }
+
+  // el の背景（CSS 変数 --portrait）に敷く
+  async function apply(el, player, { wash = 0 } = {}) {
+    if (!player?.portrait) return;
+    const w = el.clientWidth, h = el.clientHeight;
+    if (!w || !h) return;
+    const W = Math.ceil(w / look.pixelSize), H = Math.ceil(h / look.pixelSize);
+    const key = [player.portrait, W, H, look.contrast, wash].join(':');
+    let url = cache.get(key);
+    if (!url) {
+      try {
+        url = draw(await load(player.portrait), W, H, player.focus || [0.5, 0.35], wash);
+      } catch (_) {
+        return; // 画像が読めないときは背景なし
+      }
+      if (cache.size > 64) cache.clear();
+      cache.set(key, url);
+    }
+    el.style.setProperty('--portrait', `url(${url})`);
+    el.classList.add('has-portrait');
+  }
+
+  function setLook({ pixelSize, contrast }) {
+    look.pixelSize = pixelSize;
+    look.contrast = contrast;
+  }
+
+  return { apply, setLook };
+})();

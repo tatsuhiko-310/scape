@@ -811,6 +811,8 @@
     o.pixelSize = Number($('vPixel').value);
     o.contrast = Number($('vContrast').value);
     o.edges = $('vEdges').checked;
+    Portraits.setLook(o);
+    Ledger.repaint();
     resize();
   }
   for (const id of ['vPixel', 'vContrast', 'vEdges']) $(id).addEventListener('input', applyVisual);

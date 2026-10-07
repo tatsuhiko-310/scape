@@ -294,5 +294,5 @@ const ItemArt = (() => {
     c.putImageData(img, 0, 0);
   }
 
-  return { url };
+  return { url, BAYER, INK, PAPER };
 })();

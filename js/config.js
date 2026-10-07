@@ -41,11 +41,13 @@ const CONFIG = {
   ],
 
   // shape: 頭の形 / tone: コマの色（light=白, dark=黒）。表示は常にモノクロ
+  // portrait: プレイヤーボードの背景写真（実行時にディザをかける）/ focus: 顔の位置（画像内の割合 x, y）
+  // assets/portraits/p3.jpg は予備
   players: [
-    { name: 'Circle',   shape: 'sphere', tone: 'light' },
-    { name: 'Square',   shape: 'cube',   tone: 'dark' },
-    { name: 'Triangle', shape: 'cone',   tone: 'light' },
-    { name: 'Diamond',  shape: 'gem',    tone: 'dark' },
+    { name: 'Circle',   shape: 'sphere', tone: 'light', portrait: 'assets/portraits/p1.jpg', focus: [0.58, 0.30] },
+    { name: 'Square',   shape: 'cube',   tone: 'dark',  portrait: 'assets/portraits/p2.jpg', focus: [0.45, 0.30] },
+    { name: 'Triangle', shape: 'cone',   tone: 'light', portrait: 'assets/portraits/p4.jpg', focus: [0.52, 0.30] },
+    { name: 'Diamond',  shape: 'gem',    tone: 'dark',  portrait: 'assets/portraits/p5.jpg', focus: [0.48, 0.32] },
   ],
 
   // ---------- 持ち物 ----------

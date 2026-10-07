@@ -316,17 +316,46 @@ h3 {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
+.boards { gap: 0 14px; }
 .board {
-  padding: 0 16px;
-  border-left: var(--rule);
+  position: relative;
   min-width: 0;
+  min-height: 420px;
+  padding: 12px 12px 14px;
+  border: var(--rule);
+  background-color: var(--paper);
 }
-.board:first-child { border-left: 0; padding-left: 0; }
-.board.vacant { color: var(--ink); opacity: .55; }
+/* 背景のディザ写真（js/portraits.js が --portrait に入れる） */
+.board.has-portrait {
+  background-image: var(--portrait);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}
 .board.vacant h3 { font-style: italic; }
+.portrait-space { height: 150px; }
+.board.vacant .stats { background: var(--paper); padding: 4px 6px; }
+
+/* 写真の上の文字は紙・墨の札に載せて読めるようにする */
+.nameplate {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 10px 3px 6px;
+  background: var(--ink);
+  color: var(--paper);
+}
+.nameplate .chip.dark { border-color: var(--paper); }
+.board h3 i { background: var(--paper); padding: 0 4px; }
+.board .stats { display: inline-block; background: var(--paper); padding: 2px 6px; }
+.slot figcaption { display: inline-block; background: var(--paper); padding: 1px 4px; }
+.slot-box { background: var(--paper); }
+.bag-head span { background: var(--paper); padding: 0 4px; }
+.bag-head .tidy { background: var(--paper); }
+.board .bag { background-color: var(--paper); }
 .board h3 { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
 .board h3 i { font-weight: normal; font-size: 14px; }
-.board.current { background: linear-gradient(var(--ink), var(--ink)) left top / 100% 3px no-repeat; padding-top: 8px; }
+.board.current { outline: 3px solid var(--ink); outline-offset: 3px; }
 .board .stats { margin: 0 0 10px; font-size: 12px; letter-spacing: .04em; }
 
 .slots {
