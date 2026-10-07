@@ -21,17 +21,18 @@ const Portraits = (() => {
 
   const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-  // 写真は上 60% に収め、下に向かって紙の色へ溶かす（持ち物のマス目を読みやすくするため）
-  function draw(img, W, H, { focus: [fx, fy] = [0.5, 0.35], zoom = 1.25, exposure = 0 }, wash) {
+  // 頭頂部を topY、顎を chinY（どちらもドット単位）に合わせて写真を置く。
+  // 写真は下に向かって紙の色へ溶かす（持ち物のマス目を読みやすくするため）
+  function draw(img, W, H, { head = { top: 0.05, chin: 0.4, x: 0.5 }, exposure = 0 }, wash, topY, chinY) {
     const cv = document.createElement('canvas');
     cv.width = W;
     cv.height = H;
     const c = cv.getContext('2d');
-    const PH = H * 0.6;
-    const s = Math.max(W / img.width, PH / img.height) * zoom; // 顔に寄る
+    const PH = Math.min(H, chinY * 1.9);
+    const s = (chinY - topY) / ((head.chin - head.top) * img.height);
     const iw = img.width * s, ih = img.height * s;
-    const dx = Math.min(0, Math.max(W - iw, W * 0.55 - fx * iw));
-    const dy = Math.min(0, Math.max(PH - ih, PH * 0.45 - fy * ih)); // 顔が名札の下の空き（portrait-space）に来るように
+    const dx = W / 2 - head.x * iw;
+    const dy = topY - head.top * ih;
     c.fillStyle = '#fff';
     c.fillRect(0, 0, W, H);
     c.drawImage(img, dx, dy, iw, ih);
@@ -39,7 +40,7 @@ const Portraits = (() => {
     const data = c.getImageData(0, 0, W, H);
     const d = data.data;
     for (let y = 0; y < H; y++) {
-      const fade = Math.max(smooth(PH * 0.5, PH, y), y >= ih + dy ? 1 : 0);
+      const fade = Math.max(smooth(PH * 0.55, PH, y), y >= ih + dy ? 1 : 0);
       for (let x = 0; x < W; x++) {
         const i = (y * W + x) * 4;
         let l = d[i] / 255;
@@ -56,16 +57,19 @@ const Portraits = (() => {
   }
 
   // el の背景（CSS 変数 --portrait）に敷く
-  async function apply(el, player, { wash = 0 } = {}) {
+  // top / chin: 頭頂部と顎を置く高さ（el の上端からの CSS px）
+  async function apply(el, player, { wash = 0, top = 8, chin = 200 } = {}) {
     if (!player?.portrait) return;
     const w = el.clientWidth, h = el.clientHeight;
     if (!w || !h) return;
-    const W = Math.ceil(w / look.pixelSize), H = Math.ceil(h / look.pixelSize);
-    const key = [player.portrait, W, H, look.contrast, wash, player.focus, player.zoom, player.exposure].join(':');
+    const px = look.pixelSize;
+    const W = Math.ceil(w / px), H = Math.ceil(h / px);
+    const topY = top / px, chinY = chin / px;
+    const key = [player.portrait, W, H, look.contrast, wash, Math.round(topY), Math.round(chinY), JSON.stringify(player.head), player.exposure].join(':');
     let url = cache.get(key);
     if (!url) {
       try {
-        url = draw(await load(player.portrait), W, H, player, wash);
+        url = draw(await load(player.portrait), W, H, player, wash, topY, chinY);
       } catch (_) {
         return; // 画像が読めないときは背景なし
       }

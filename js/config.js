@@ -41,14 +41,16 @@ const CONFIG = {
   ],
 
   // shape: 頭の形 / tone: コマの色（light=白, dark=黒）。表示は常にモノクロ
-  // portrait: プレイヤーボードの背景写真（実行時にディザをかける）/ focus: 顔の位置（画像内の割合 x, y）
-  // zoom: 寄り具合（既定 1.25）/ exposure: 明るさの足し引き（暗い写真はプラスに）
+  // portrait: プレイヤーボードの背景写真（実行時にディザをかける）
+  // head: 写真の中の頭の位置（画像の高さ・幅に対する割合）。top = 頭頂部, chin = 顎, x = 顔の中心
+  //   → どのボードでも頭頂部は名札の高さ、顎は武器枠のすぐ上にそろう
+  // exposure: 明るさの足し引き（暗い写真はプラスに）
   // assets/portraits/p3.jpg は予備
   players: [
-    { name: 'Circle',   shape: 'sphere', tone: 'light', portrait: 'assets/portraits/p1.jpg', focus: [0.58, 0.30] },
-    { name: 'Square',   shape: 'cube',   tone: 'dark',  portrait: 'assets/portraits/p2.jpg', focus: [0.48, 0.3], zoom: 1.5, exposure: -0.12 },
-    { name: 'Triangle', shape: 'cone',   tone: 'light', portrait: 'assets/portraits/p4.jpg', focus: [0.52, 0.30] },
-    { name: 'Diamond',  shape: 'gem',    tone: 'dark',  portrait: 'assets/portraits/p5.jpg', focus: [0.48, 0.32] },
+    { name: 'Circle',   shape: 'sphere', tone: 'light', portrait: 'assets/portraits/p1.jpg', head: { top: 0.02, chin: 0.41, x: 0.50 } },
+    { name: 'Square',   shape: 'cube',   tone: 'dark',  portrait: 'assets/portraits/p2.jpg', head: { top: 0.02, chin: 0.46, x: 0.46 }, exposure: -0.12 },
+    { name: 'Triangle', shape: 'cone',   tone: 'light', portrait: 'assets/portraits/p4.jpg', head: { top: 0.03, chin: 0.34, x: 0.50 } },
+    { name: 'Diamond',  shape: 'gem',    tone: 'dark',  portrait: 'assets/portraits/p5.jpg', head: { top: 0.04, chin: 0.36, x: 0.46 } },
   ],
 
   // ---------- 持ち物 ----------

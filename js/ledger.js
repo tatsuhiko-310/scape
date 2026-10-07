@@ -243,7 +243,7 @@ const Ledger = (() => {
       const art = document.createElement('article');
       art.className = 'board vacant';
       art.dataset.seat = i;
-      art.innerHTML = `<h3><span class="nameplate">Player ${i + 1}</span></h3><div class="portrait-space"></div><p class="stats"><i>Seat vacant.</i> Raise the number of players under “Notice to Players” to fill it.</p>`;
+      art.innerHTML = `<h3><span class="nameplate">Player ${i + 1}</span></h3><p class="stats"><i>Seat vacant.</i> Raise the number of players to fill it.</p><div class="portrait-space"></div>`;
       root.appendChild(art);
     }
     renderDepot();
@@ -257,7 +257,11 @@ const Ledger = (() => {
     for (const art of root.children) {
       const seat = Number(art.dataset.seat);
       const vacant = art.classList.contains('vacant');
-      Portraits.apply(art, vacant ? CONFIG.players[seat] : players[seat], { wash: vacant ? 0.35 : 0 });
+      // 頭頂部は名札の上端、顎は写真用の空き（武器枠のすぐ上）の下端にそろえる
+      const plate = $('.nameplate', art), space = $('.portrait-space', art);
+      const top = plate ? plate.offsetTop : 8;
+      const chin = space ? space.offsetTop + space.offsetHeight - 6 : 200;
+      Portraits.apply(art, vacant ? CONFIG.players[seat] : players[seat], { wash: vacant ? 0.35 : 0, top, chin });
     }
   }
   if (window.ResizeObserver) {
