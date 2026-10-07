@@ -22,13 +22,13 @@ const Portraits = (() => {
   const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
   // 写真は上 60% に収め、下に向かって紙の色へ溶かす（持ち物のマス目を読みやすくするため）
-  function draw(img, W, H, [fx, fy], wash) {
+  function draw(img, W, H, { focus: [fx, fy] = [0.5, 0.35], zoom = 1.25, exposure = 0 }, wash) {
     const cv = document.createElement('canvas');
     cv.width = W;
     cv.height = H;
     const c = cv.getContext('2d');
     const PH = H * 0.6;
-    const s = Math.max(W / img.width, PH / img.height) * 1.25; // 顔に少し寄る
+    const s = Math.max(W / img.width, PH / img.height) * zoom; // 顔に寄る
     const iw = img.width * s, ih = img.height * s;
     const dx = Math.min(0, Math.max(W - iw, W * 0.55 - fx * iw));
     const dy = Math.min(0, Math.max(PH - ih, PH * 0.45 - fy * ih)); // 顔が名札の下の空き（portrait-space）に来るように
@@ -45,7 +45,7 @@ const Portraits = (() => {
         let l = d[i] / 255;
         // 写真は少し柔らかめ・明るめに（顔が潰れないように）
         l = Math.pow(l, 0.8);
-        l = (l - 0.5) * (1 + (look.contrast - 1) * 0.5) + 0.5 + 0.04;
+        l = (l - 0.5) * (1 + (look.contrast - 1) * 0.5) + 0.5 + 0.04 + exposure;
         l = l + (1 - l) * Math.max(fade, wash);
         const col = l > BAYER[y % 8][x % 8] ? PAPER : INK;
         d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255;
@@ -61,11 +61,11 @@ const Portraits = (() => {
     const w = el.clientWidth, h = el.clientHeight;
     if (!w || !h) return;
     const W = Math.ceil(w / look.pixelSize), H = Math.ceil(h / look.pixelSize);
-    const key = [player.portrait, W, H, look.contrast, wash].join(':');
+    const key = [player.portrait, W, H, look.contrast, wash, player.focus, player.zoom, player.exposure].join(':');
     let url = cache.get(key);
     if (!url) {
       try {
-        url = draw(await load(player.portrait), W, H, player.focus || [0.5, 0.35], wash);
+        url = draw(await load(player.portrait), W, H, player, wash);
       } catch (_) {
         return; // 画像が読めないときは背景なし
       }
