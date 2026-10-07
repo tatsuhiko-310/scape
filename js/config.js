@@ -47,10 +47,10 @@ const CONFIG = {
   // exposure: 明るさの足し引き（暗い写真はプラスに）
   // assets/portraits/p3.jpg は予備
   players: [
-    { name: 'Circle',   shape: 'sphere', tone: 'light', portrait: 'assets/portraits/p1.jpg', head: { top: 0.02, chin: 0.41, x: 0.50 } },
-    { name: 'Square',   shape: 'cube',   tone: 'dark',  portrait: 'assets/portraits/p2.jpg', head: { top: 0.02, chin: 0.46, x: 0.46 }, exposure: -0.12 },
-    { name: 'Triangle', shape: 'cone',   tone: 'light', portrait: 'assets/portraits/p4.jpg', head: { top: 0.03, chin: 0.34, x: 0.50 } },
-    { name: 'Diamond',  shape: 'gem',    tone: 'dark',  portrait: 'assets/portraits/p5.jpg', head: { top: 0.04, chin: 0.36, x: 0.46 } },
+    { name: 'Circle',   shape: 'sphere', tone: 'light', portrait: 'assets/portraits/p1.jpg?v=10', head: { top: 0.02, chin: 0.41, x: 0.50 } },
+    { name: 'Square',   shape: 'cube',   tone: 'dark',  portrait: 'assets/portraits/p2.jpg?v=10', head: { top: 0.02, chin: 0.46, x: 0.46 }, exposure: -0.12 },
+    { name: 'Triangle', shape: 'cone',   tone: 'light', portrait: 'assets/portraits/p4.jpg?v=10', head: { top: 0.03, chin: 0.34, x: 0.50 } },
+    { name: 'Diamond',  shape: 'gem',    tone: 'dark',  portrait: 'assets/portraits/p5.jpg?v=10', head: { top: 0.04, chin: 0.36, x: 0.46 } },
   ],
 
   // ---------- 持ち物 ----------

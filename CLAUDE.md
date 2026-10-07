@@ -23,3 +23,10 @@
 - `js/main.js` … 3D シーン・操作・ターン進行・紙面の更新
 - `js/dither.js` … モノクロ・ディザのポストエフェクト
 - ビルド不要。`index.html` を開けば動く（Three.js r160 は `vendor/` に同梱）
+
+## 公開と更新
+
+- GitHub Pages（https://tatsuhiko-310.github.io/scape/）はブランチへのプッシュで自動更新される。
+- Pages はファイルを最大 10 分キャッシュするので、**変更をプッシュするたびに版番号を 1 つ上げる**：
+  `index.html` の `?v=N`（css / js 全部）と `<span id="build">N</span>`、`js/config.js` の写真パスの `?v=N`。
+  題字上の「Ed. N」で、どの版が表示されているか確認できる。
