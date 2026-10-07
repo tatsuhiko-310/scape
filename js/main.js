@@ -66,40 +66,71 @@
 
   // ---------- カメラ（アイソメトリック） ----------
 
-  const view = { angle: Math.PI * 1.25, zoom: 1 };
-  const ELEV = Math.tan(Math.PI / 6); // 30° 見下ろし（ドット絵の 2:1 アイソメ）
+  const DEFAULT_VIEW = { angle: Math.PI * 1.25, elev: Math.PI / 6, zoom: 1 }; // 30° 見下ろし（2:1 アイソメ）
+  const view = { ...DEFAULT_VIEW };
+  const ELEV_MIN = Math.PI / 18, ELEV_MAX = Math.PI / 2 - 0.01; // 10°〜ほぼ真上
+  const ZOOM_MIN = 0.5, ZOOM_MAX = 4;
 
   function updateCamera() {
     const R = 30;
+    const flat = Math.cos(view.elev) * R;
     camera.position.set(
-      center.x + Math.cos(view.angle) * R,
-      R * ELEV,
-      center.z + Math.sin(view.angle) * R,
+      center.x + Math.cos(view.angle) * flat,
+      Math.sin(view.elev) * R,
+      center.z + Math.sin(view.angle) * flat,
     );
     camera.lookAt(center);
   }
 
-  function resize() {
+  function updateProjection() {
     const w = stage.clientWidth, h = stage.clientHeight;
-    renderer.setSize(w, h);
-    dither.setSize(w, h);
     const aspect = w / h;
     const span = (maxX - minX + maxZ - minZ + 6) / Math.SQRT2; // 斜めから見たときの幅
     const halfH = Math.max(span * 0.36, (span / 2 + 0.6) / aspect) / view.zoom;
     Object.assign(camera, { left: -halfH * aspect, right: halfH * aspect, top: halfH, bottom: -halfH });
     camera.updateProjectionMatrix();
   }
+
+  function resize() {
+    const w = stage.clientWidth, h = stage.clientHeight;
+    renderer.setSize(w, h);
+    dither.setSize(w, h);
+    updateProjection();
+  }
   new ResizeObserver(resize).observe(stage);
 
-  async function rotateView(dir) {
-    const from = view.angle, to = from + dir * Math.PI / 2;
-    await tween(450, (t) => { view.angle = from + (to - from) * ease(t); updateCamera(); });
+  function orbit(dx, dy) {
+    view.angle += dx * 0.008;
+    view.elev = Math.min(ELEV_MAX, Math.max(ELEV_MIN, view.elev + dy * 0.006));
+    updateCamera();
+  }
+
+  function setZoom(z) {
+    view.zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+    updateProjection();
+  }
+
+  // ボタン・キー用：なめらかに視点を動かす
+  function animateView(to, dur = 400) {
+    const from = { ...view };
+    return tween(dur, (t) => {
+      const k = ease(t);
+      for (const key of Object.keys(to)) view[key] = from[key] + (to[key] - from[key]) * k;
+      updateCamera();
+      updateProjection();
+    });
+  }
+
+  function resetView() {
+    // 今の向きから一番近い回り方で初期位置へ戻す
+    const turn = Math.PI * 2;
+    const angle = DEFAULT_VIEW.angle + Math.round((view.angle - DEFAULT_VIEW.angle) / turn) * turn;
+    return animateView({ ...DEFAULT_VIEW, angle });
   }
 
   stage.addEventListener('wheel', (e) => {
     e.preventDefault();
-    view.zoom = Math.min(3, Math.max(0.6, view.zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1)));
-    resize();
+    setZoom(view.zoom * Math.exp(-e.deltaY * 0.0015));
   }, { passive: false });
 
   // ---------- アニメーション ----------
@@ -504,34 +535,77 @@
 
   const canvas = renderer.domElement;
 
+  // 指（ポインタ）の位置。2本ならピンチで拡大縮小
+  const touches = new Map();
+  let pinch = null;
+  let orbiting = null;
+
   canvas.addEventListener('pointerdown', (e) => {
+    touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    canvas.setPointerCapture(e.pointerId);
+
+    if (touches.size === 2 && !drag) {
+      const [a, b] = [...touches.values()];
+      pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), zoom: view.zoom };
+      orbiting = null;
+      press = null;
+      return;
+    }
+    if (touches.size > 1) return;
+
     setPointer(e);
     const player = state.busy ? null : pieceAt();
     if (player) {
       drag = player;
       player.dragging = true;
-      canvas.setPointerCapture(e.pointerId);
       canvas.style.cursor = 'grabbing';
       return;
     }
+    // コマ以外を掴んだら視点を回す（ほとんど動かさずに離したらマスのクリック）
     const tile = tileAt();
-    press = tile ? { tile, x: e.clientX, y: e.clientY } : null;
+    press = { tile, x: e.clientX, y: e.clientY };
+    orbiting = { x: e.clientX, y: e.clientY, moved: false };
   });
 
   canvas.addEventListener('pointermove', (e) => {
+    if (touches.has(e.pointerId)) touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pinch && touches.size >= 2) {
+      const [a, b] = [...touches.values()];
+      setZoom(pinch.zoom * Math.hypot(a.x - b.x, a.y - b.y) / pinch.dist);
+      return;
+    }
+
     setPointer(e);
     if (drag) {
       const p = new THREE.Vector3();
       if (raycaster.ray.intersectPlane(dragPlane, p)) drag.obj.position.set(p.x, TOP + 0.35, p.z);
-      // コマの下にあるマスを光らせる（コマ自身は無視するため地面方向で判定）
       setHover(tileAt());
       return;
     }
+
+    if (orbiting) {
+      const dx = e.clientX - orbiting.x, dy = e.clientY - orbiting.y;
+      if (!orbiting.moved && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 6) return;
+      orbiting.moved = true;
+      orbiting.x = e.clientX;
+      orbiting.y = e.clientY;
+      orbit(dx, dy);
+      setHover(null);
+      canvas.style.cursor = 'move';
+      return;
+    }
+
     setHover(tileAt());
-    canvas.style.cursor = pieceAt() && !state.busy ? 'grab' : hovered ? 'pointer' : '';
+    canvas.style.cursor = pieceAt() && !state.busy ? 'grab' : hovered ? 'pointer' : 'move';
   });
 
-  canvas.addEventListener('pointerup', (e) => {
+  function endPointer(e) {
+    touches.delete(e.pointerId);
+    if (pinch) {
+      if (touches.size < 2) pinch = null;
+      return;
+    }
     setPointer(e);
     if (drag) {
       const player = drag;
@@ -548,13 +622,17 @@
       renderPlayers();
       return;
     }
-    if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 6 && tileAt() === press.tile) {
-      openSquareEditor(press.tile.userData.index);
-    }
+    const clicked = e.type === 'pointerup' && orbiting && !orbiting.moved && press?.tile && tileAt() === press.tile;
+    orbiting = null;
+    canvas.style.cursor = '';
+    if (clicked) openSquareEditor(press.tile.userData.index);
     press = null;
-  });
+  }
 
-  canvas.addEventListener('pointerleave', () => !drag && setHover(null));
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', endPointer);
+
+  canvas.addEventListener('pointerleave', () => !drag && !orbiting && setHover(null));
 
   // ---------- マス編集 ----------
 
@@ -652,16 +730,20 @@
   }
 
   $('rollBtn').addEventListener('click', takeTurn);
-  $('rotL').addEventListener('click', () => rotateView(-1));
-  $('rotR').addEventListener('click', () => rotateView(1));
+  $('zoomIn').addEventListener('click', () => animateView({ zoom: Math.min(ZOOM_MAX, view.zoom * 1.4) }, 200));
+  $('zoomOut').addEventListener('click', () => animateView({ zoom: Math.max(ZOOM_MIN, view.zoom / 1.4) }, 200));
+  $('viewReset').addEventListener('click', resetView);
   $('resetBtn').addEventListener('click', () => !state.busy && reset());
   $('playerCount').addEventListener('change', () => !state.busy && reset());
   $('diceCount').addEventListener('change', () => !state.busy && setupDice(Number($('diceCount').value)));
   document.addEventListener('keydown', (e) => {
     if (dialog.open || ['INPUT', 'SELECT'].includes(document.activeElement?.tagName)) return;
     if (e.code === 'Space') { e.preventDefault(); takeTurn(); }
-    if (e.code === 'KeyQ') rotateView(-1);
-    if (e.code === 'KeyE') rotateView(1);
+    if (e.code === 'KeyQ') animateView({ angle: view.angle - Math.PI / 2 });
+    if (e.code === 'KeyE') animateView({ angle: view.angle + Math.PI / 2 });
+    if (e.key === '+' || e.key === '=') $('zoomIn').click();
+    if (e.key === '-') $('zoomOut').click();
+    if (e.code === 'KeyR') resetView();
   });
 
   state.squares = loadSquares();
@@ -673,5 +755,5 @@
   if (stage.clientWidth < 600) $('vPixel').value = 1; // 小さい画面ではドットを細かく
   applyVisual();
 
-  window.scape = { state, rotateView, camera, cells }; // デバッグ用
+  window.scape = { state, view, camera, cells }; // デバッグ用
 })();
