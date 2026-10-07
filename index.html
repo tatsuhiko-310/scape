@@ -1,92 +1,132 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Scape — Board Prototype</title>
+  <title>The Scape Daily</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,400&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <div class="app">
-    <div class="stage" id="stage">
-      <div class="hud top">
-        <div class="turn" id="turn"></div>
-        <div class="view-btns">
-          <button class="btn icon" id="zoomOut" title="縮小 (-)">−</button>
-          <button class="btn icon" id="zoomIn" title="拡大 (+)">＋</button>
-          <button class="btn icon" id="viewReset" title="視点を戻す (R)">⌂</button>
+  <main class="paper">
+    <header class="masthead">
+      <div class="ears">
+        <span id="edition">Vol. I — No. 1</span>
+        <span>Price: One Die</span>
+      </div>
+      <h1>The Scape Daily</h1>
+      <div class="dateline">
+        <span id="today"></span>
+        <span class="motto">A newspaper that delivers fresh turns every day</span>
+        <span id="onMove"></span>
+      </div>
+    </header>
+
+    <div class="front">
+      <!-- 左：動く写真（3D ボード）と手番 -->
+      <section class="photo-col">
+        <figure class="photo">
+          <div class="stage" id="stage">
+            <div class="view-btns">
+              <button class="link" id="zoomOut" title="Zoom out (-)">−</button>
+              <button class="link" id="zoomIn" title="Zoom in (+)">+</button>
+              <button class="link" id="viewReset" title="Reset view (R)">Reset</button>
+            </div>
+          </div>
+          <figcaption>
+            <b>Fig. 1</b> — The course of thirty squares, photographed live.
+            Drag to turn the view, scroll or pinch to zoom; drag a piece to move it by hand,
+            click a square to rewrite it.
+          </figcaption>
+        </figure>
+
+        <div class="roll-bar">
+          <div class="die-reading">
+            <span class="kicker">The die reads</span>
+            <span class="reading" id="diceTotal">—</span>
+          </div>
+          <button class="roll" id="rollBtn">Roll the Die</button>
         </div>
-      </div>
-      <div class="hud bottom">
-        <div class="dice-total" id="diceTotal">&nbsp;</div>
-        <button class="btn primary" id="rollBtn">サイコロを振る</button>
-      </div>
+      </section>
+
+      <!-- 右：トップ記事・順位・過去の記事 -->
+      <section class="news-col">
+        <article class="lead" id="lead">
+          <span class="kicker">Latest</span>
+          <h2 id="leadHead"></h2>
+          <p id="leadBody"></p>
+        </article>
+
+        <hr>
+
+        <section class="standings">
+          <h3>Standings</h3>
+          <table>
+            <thead><tr><th></th><th>Player</th><th>Square</th><th>Laps</th></tr></thead>
+            <tbody id="players"></tbody>
+          </table>
+        </section>
+
+        <hr>
+
+        <section class="archive">
+          <h3>Earlier Reports</h3>
+          <div id="archive"></div>
+        </section>
+      </section>
     </div>
 
-    <aside class="panel">
+    <hr class="double">
+
+    <!-- 下段：設定は「案内広告」として -->
+    <footer class="classifieds">
       <section>
-        <h2>セットアップ</h2>
-        <label class="row">
-          プレイヤー数
+        <h3>Notice to Players</h3>
+        <label class="row">Players
           <select id="playerCount">
             <option>1</option><option selected>2</option><option>3</option><option>4</option>
           </select>
         </label>
-        <label class="row">
-          サイコロの数
+        <label class="row">Dice
           <select id="diceCount">
             <option selected>1</option><option>2</option><option>3</option>
           </select>
         </label>
-        <label class="row">
-          <span>1マスずつ歩く</span>
+        <label class="row">Walk square by square
           <input type="checkbox" id="stepMove" checked>
         </label>
-        <button class="btn" id="resetBtn">リセット</button>
+        <button class="link" id="resetBtn">Start a new game</button>
       </section>
 
       <section>
-        <h2>ビジュアル</h2>
-        <label class="row"><span>モノクロ・ディザ</span><input type="checkbox" id="vDither" checked></label>
-        <label class="row"><span>輪郭線</span><input type="checkbox" id="vEdges" checked></label>
-        <label class="row">ドットの大きさ <input type="range" id="vPixel" min="1" max="5" step="1" value="2"></label>
-        <label class="row">コントラスト <input type="range" id="vContrast" min="0.6" max="2.2" step="0.05" value="1.35"></label>
+        <h3>From the Print Room</h3>
+        <label class="row">Outlines <input type="checkbox" id="vEdges" checked></label>
+        <label class="row">Dot size <input type="range" id="vPixel" min="1" max="5" step="1" value="2"></label>
+        <label class="row">Contrast <input type="range" id="vContrast" min="0.6" max="2.2" step="0.05" value="1.35"></label>
       </section>
 
       <section>
-        <h2>プレイヤー</h2>
-        <ul class="players" id="players"></ul>
-        <p class="hint">コマはドラッグして好きなマスへ動かせます。<br>コマ以外をドラッグで視点を回転、ホイール / ピンチ / ＋− ボタンで拡大縮小、⌂ で視点を戻す。</p>
+        <h3>Corrections</h3>
+        <p>Click any square on the photograph to give it a name, a mark and a terrain.
+          Changes are kept in this browser.</p>
+        <button class="link" id="exportBtn">Export as JSON</button>
+        <button class="link" id="clearSquaresBtn">Restore all squares</button>
       </section>
-
-      <section>
-        <h2>ログ</h2>
-        <ol class="log" id="log"></ol>
-      </section>
-
-      <section>
-        <h2>マス編集</h2>
-        <p class="hint">マスをクリックすると名前・アイコン・地形を変えられます。編集内容はブラウザに保存されます。</p>
-        <div class="row gap">
-          <button class="btn" id="exportBtn">JSON書き出し</button>
-          <button class="btn" id="clearSquaresBtn">マスを初期化</button>
-        </div>
-      </section>
-    </aside>
-  </div>
+    </footer>
+  </main>
 
   <dialog id="squareDialog">
     <form method="dialog" class="sq-form">
-      <h3 id="sqTitle">マス</h3>
-      <label>名前 <input id="sqName" maxlength="8"></label>
-      <label>アイコン <input id="sqIcon" maxlength="2" placeholder="絵文字など"></label>
+      <span class="kicker">Correction</span>
+      <h3 id="sqTitle">Square</h3>
+      <label>Name <input id="sqName" maxlength="8"></label>
+      <label>Mark <input id="sqIcon" maxlength="2" placeholder="★ ? ♠ …"></label>
       <div class="swatches" id="sqSwatches"></div>
-      <div class="row gap end">
-        <button class="btn" value="cancel">キャンセル</button>
-        <button class="btn primary" value="ok">保存</button>
+      <div class="row end">
+        <button class="link" value="cancel">Cancel</button>
+        <button class="roll small" value="ok">Print it</button>
       </div>
     </form>
   </dialog>
@@ -95,6 +135,7 @@
   <script src="js/config.js"></script>
   <script src="js/textures.js"></script>
   <script src="js/dither.js"></script>
+  <script src="js/press.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

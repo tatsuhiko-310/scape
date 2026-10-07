@@ -1,4 +1,4 @@
-// モノクロ・ディザリングのポストエフェクト。
+// モノクロ・ディザリングのポストエフェクト（このプロジェクトの表現の核。外さないこと）。
 // シーンを低解像度で描いてから、明るさを Bayer 行列で 白/黒 の 2 値に落とす。
 // 深度の段差から輪郭線も引く。
 
@@ -6,7 +6,6 @@ class Dither {
   constructor(renderer) {
     this.renderer = renderer;
     this.options = {
-      enabled: true,
       pixelSize: 2,     // 1ドットの大きさ（CSS px）
       contrast: 1.35,
       brightness: -0.02,
@@ -29,8 +28,8 @@ class Dither {
         brightness: { value: 0 },
         edges: { value: 1 },
         edgeThreshold: { value: 0.003 },
-        ink: { value: new THREE.Color(0.04, 0.04, 0.04) },
-        paper: { value: new THREE.Color(0.97, 0.97, 0.95) },
+        ink: { value: new THREE.Color(0x1c / 255, 0x1b / 255, 0x1a / 255) },
+        paper: { value: new THREE.Color(0xf2 / 255, 0xf0 / 255, 0xea / 255) },
       },
       vertexShader: /* glsl */ `
         varying vec2 vUv;
@@ -119,11 +118,6 @@ class Dither {
 
   render(scene, camera) {
     const r = this.renderer;
-    if (!this.options.enabled) {
-      r.setRenderTarget(null);
-      r.render(scene, camera);
-      return;
-    }
     const u = this.material.uniforms;
     u.contrast.value = this.options.contrast;
     u.brightness.value = this.options.brightness;

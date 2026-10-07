@@ -146,5 +146,12 @@ const Textures = (() => {
     return tex;
   }
 
-  return { tile, dieFace, shade };
+  // 色の明るさだけを残した灰色（UI の見本用）
+  function gray(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    const l = Math.round(0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255));
+    return `rgb(${l},${l},${l})`;
+  }
+
+  return { tile, dieFace, shade, gray };
 })();

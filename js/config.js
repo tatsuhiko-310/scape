@@ -7,11 +7,11 @@ const CONFIG = {
 
   // 地形（マスの見た目）。base = 地面の色, side = 側面の色
   terrains: {
-    grass: { label: '草原', base: '#4f9a3c', side: '#2c5a22' },
-    sand:  { label: '砂漠', base: '#e3c766', side: '#9c7a26' },
-    water: { label: '水辺', base: '#3a73b8', side: '#1d406e' },
-    lava:  { label: '溶岩', base: '#b8361f', side: '#5e1a0e' },
-    stone: { label: '石畳', base: '#cfcac0', side: '#7a7368' },
+    grass: { label: 'Meadow', base: '#4f9a3c', side: '#2c5a22' },
+    sand:  { label: 'Desert', base: '#e3c766', side: '#9c7a26' },
+    water: { label: 'Waters', base: '#3a73b8', side: '#1d406e' },
+    lava:  { label: 'Lava Fields', base: '#b8361f', side: '#5e1a0e' },
+    stone: { label: 'Cobblestone', base: '#cfcac0', side: '#7a7368' },
   },
 
   // 範囲ごとの地形。[開始, 終了(含む), 地形]
@@ -40,27 +40,27 @@ const CONFIG = {
     { at: 15, kind: 'castle' },
   ],
 
-  // shape: 頭の形 / tone: モノクロ表示での色（light=白, dark=黒）/ color: カラー表示での色
+  // shape: 頭の形 / tone: コマの色（light=白, dark=黒）。表示は常にモノクロ
   players: [
-    { name: 'まる',     shape: 'sphere', tone: 'light', color: '#e2504c' },
-    { name: 'しかく',   shape: 'cube',   tone: 'dark',  color: '#3d7fd9' },
-    { name: 'さんかく', shape: 'cone',   tone: 'light', color: '#3aa564' },
-    { name: 'ひし',     shape: 'gem',    tone: 'dark',  color: '#e6b422' },
+    { name: 'Circle',   shape: 'sphere', tone: 'light' },
+    { name: 'Square',   shape: 'cube',   tone: 'dark' },
+    { name: 'Triangle', shape: 'cone',   tone: 'light' },
+    { name: 'Diamond',  shape: 'gem',    tone: 'dark' },
   ],
 };
 
 // ルールのフック。ルールが決まったらここに処理を書く。
-// main.js から呼ばれる。log(text) でログに出せる。
+// main.js から呼ばれる。log(text) で書いた文は、その手番の記事の本文に載る（英文推奨）。
 const RULES = {
   // スタートを通過/到着したとき
   onPassStart(player, { log }) {
-    log(`${player.name} が一周しました（${player.laps}周目）`);
+    log(`${player.name} passed the starting tower and begins lap ${player.laps + 1}.`);
   },
 
   // 止まったマスで
   onLand(player, square, { log }) {
     if (square.name || square.icon) {
-      log(`${player.name} は「${square.icon} ${square.name}」に止まった`);
+      log(`Witnesses report the square bore the mark "${[square.icon, square.name].filter(Boolean).join(' ')}".`);
     }
   },
 };

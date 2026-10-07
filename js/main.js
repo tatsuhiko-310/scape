@@ -66,7 +66,7 @@
 
   // ---------- カメラ（アイソメトリック） ----------
 
-  const DEFAULT_VIEW = { angle: Math.PI * 1.25, elev: Math.PI / 6, zoom: 1 }; // 30° 見下ろし（2:1 アイソメ）
+  const DEFAULT_VIEW = { angle: Math.PI * 1.25, elev: Math.PI / 6, zoom: 1.25 }; // 30° 見下ろし（2:1 アイソメ）
   const view = { ...DEFAULT_VIEW };
   const ELEV_MIN = Math.PI / 18, ELEV_MAX = Math.PI / 2 - 0.01; // 10°〜ほぼ真上
   const ZOOM_MIN = 0.5, ZOOM_MAX = 4;
@@ -330,9 +330,8 @@
     return g;
   }
 
-  // モノクロ時は白/黒、カラー時はプレイヤー色
   function paintPiece(player, g = player.obj) {
-    g.userData.material.color.set(dither.options.enabled ? TONES[player.tone] : player.color);
+    g.userData.material.color.set(TONES[player.tone]);
   }
 
   // 手番のコマの足元の輪を脈動させる
@@ -342,8 +341,7 @@
       ring.visible = p.id === state.current;
       ring.scale.setScalar(1 + 0.12 * Math.sin(t * 5));
       // どんな地面の上でも見えるよう白黒に点滅させる
-      if (dither.options.enabled) ring.material.color.setScalar(Math.sin(t * 6) > 0 ? 1 : 0);
-      else ring.material.color.set(p.color);
+      ring.material.color.setScalar(Math.sin(t * 6) > 0 ? 1 : 0);
     }
   });
 
@@ -386,25 +384,21 @@
     renderPlayers();
   }
 
-  const chip = (p) => `<span class="chip ${p.tone}" style="--pc:${p.color}">${SHAPE_GLYPH[p.shape]}</span>`;
+  const chip = (p) => `<span class="chip ${p.tone}">${SHAPE_GLYPH[p.shape]}</span>`;
 
   function renderPlayers() {
-    const ul = $('players');
-    ul.innerHTML = '';
+    const tbody = $('players');
+    tbody.innerHTML = '';
     for (const p of state.players) {
-      const li = document.createElement('li');
-      li.className = p.id === state.current ? 'current' : '';
-      li.innerHTML = `
-        ${chip(p)}
-        <span class="pname">${p.name}</span>
-        <span class="meta">マス ${p.pos} ・ ${p.laps}周</span>`;
-      ul.appendChild(li);
+      const tr = document.createElement('tr');
+      tr.className = p.id === state.current ? 'current' : '';
+      tr.innerHTML = `<td>${chip(p)}</td><td>${p.name}</td><td>${p.pos}</td><td>${p.laps}</td>`;
+      tbody.appendChild(tr);
     }
     const cur = state.players[state.current];
-    $('turn').innerHTML = cur
-      ? `${chip(cur)} ${cur.name} の番`
-      : '';
+    $('onMove').innerHTML = cur ? `Now on the move: ${chip(cur)} ${cur.name}` : '';
   }
+
 
   // ---------- サイコロ（3D） ----------
 
@@ -429,7 +423,7 @@
       scene.add(d);
       return d;
     });
-    $('diceTotal').innerHTML = '&nbsp;';
+    $('diceTotal').textContent = '—';
   }
 
   function diceSpot(i, count) {
@@ -467,11 +461,16 @@
     const player = state.players[state.current];
     const values = await Promise.all(state.dice.map((d, i) => rollDie(d, i, state.dice.length)));
     const total = values.reduce((a, b) => a + b, 0);
-    $('diceTotal').textContent = values.length > 1 ? `${values.join(' + ')} = ${total}` : `${total}`;
-    log(`${player.name} が ${total} を出した`);
+    $('diceTotal').textContent = values.length > 1 ? `${values.join(' + ')} = ${word(total)}` : word(total);
 
+    story = [];
+    const from = player.pos;
     await movePlayer(player, total);
-    RULES.onLand(player, state.squares[player.pos], ruleApi);
+    const sq = state.squares[player.pos];
+    RULES.onLand(player, sq, ruleApi);
+    const notes = story;
+    story = null;
+    publish(Press.turnHeadline(player, total, sq), Press.turnBody(player, total, from, sq, notes));
 
     state.current = (state.current + 1) % state.players.length;
     renderPlayers();
@@ -615,7 +614,8 @@
       const tile = tileAt();
       if (tile && tile.userData.index !== player.pos) {
         player.pos = tile.userData.index;
-        log(`${player.name} を マス${player.pos} へ移動`);
+        publish(`${player.name} Relocated to Square ${player.pos}`,
+          `By order of an unseen hand, ${player.name} was lifted from the board and set down on square ${player.pos}. No dice were consulted.`);
       }
       hop(player, 0.15, 160);
       settlePieces(player);
@@ -643,7 +643,7 @@
   function openSquareEditor(i) {
     editing = i;
     const sq = state.squares[i];
-    $('sqTitle').textContent = `マス ${i}`;
+    $('sqTitle').textContent = `Square No. ${i}`;
     $('sqName').value = sq.name;
     $('sqIcon').value = sq.icon;
     editingTerrain = sq.terrain;
@@ -658,8 +658,7 @@
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'swatch' + (key === editingTerrain ? ' on' : '');
-      b.style.background = t.base;
-      b.style.borderBottomColor = t.side;
+      b.style.setProperty('--tone', Textures.gray(t.base));
       b.textContent = t.label;
       b.addEventListener('click', () => { editingTerrain = key; renderSwatches(); });
       wrap.appendChild(b);
@@ -688,45 +687,90 @@
   });
 
   $('clearSquaresBtn').addEventListener('click', () => {
-    if (!confirm('マスの編集内容を初期状態に戻しますか？')) return;
+    if (!confirm('Restore every square to its original edition?')) return;
     state.squares = defaultSquares();
     saveSquares();
     hovered = null;
     buildBoard();
   });
 
-  // ---------- ログ ----------
+  // ---------- 紙面（ログ） ----------
 
+  let story = null;   // ターン中に RULES から届いた文。記事の本文に混ぜる
+  let edition = 0;
+  let typing = 0;
+
+  // ルールからの一言。ターン中なら記事本文に、それ以外は短信として載せる
   function log(text) {
-    const li = document.createElement('li');
-    li.textContent = text;
-    $('log').prepend(li);
-    while ($('log').children.length > 50) $('log').lastChild.remove();
+    if (story) story.push(text);
+    else publish(text, '');
   }
 
+  // トップ記事を差し替える。前のトップ記事は「Earlier Reports」へ
+  function publish(headline, body) {
+    const prev = { head: $('leadHead').dataset.text, body: $('leadBody').textContent };
+    if (prev.head) {
+      const a = document.createElement('article');
+      a.className = 'new';
+      a.innerHTML = `<h4></h4><p></p>`;
+      a.querySelector('h4').textContent = prev.head;
+      a.querySelector('p').textContent = prev.body;
+      $('archive').prepend(a);
+      while ($('archive').children.length > 40) $('archive').lastChild.remove();
+    }
+    edition++;
+    $('edition').textContent = `Vol. I — No. ${edition}`;
+
+    // 見出しはタイプライターのように一文字ずつ
+    const h = $('leadHead');
+    const p = $('leadBody');
+    h.dataset.text = headline;
+    p.textContent = '';
+    p.classList.remove('in');
+    const run = ++typing;
+    let n = 0;
+    const tick = () => {
+      if (run !== typing) return;
+      h.innerHTML = '';
+      h.append(headline.slice(0, n));
+      if (n < headline.length) {
+        const caret = document.createElement('span');
+        caret.className = 'caret';
+        h.append(caret);
+        n++;
+        setTimeout(tick, 28);
+      } else {
+        p.textContent = body;
+        void p.offsetWidth;
+        p.classList.add('in');
+      }
+    };
+    tick();
+  }
+
+  const word = (n) => Press.word(n);
   const ruleApi = { log, state };
 
-  // ---------- ビジュアル設定 ----------
+  // ---------- ビジュアル設定（モノクロ・ディザは固定） ----------
 
   function applyVisual() {
     const o = dither.options;
-    o.enabled = $('vDither').checked;
     o.pixelSize = Number($('vPixel').value);
     o.contrast = Number($('vContrast').value);
     o.edges = $('vEdges').checked;
-    document.body.classList.toggle('mono', o.enabled);
-    for (const p of state.players) paintPiece(p);
     resize();
   }
-  for (const id of ['vDither', 'vPixel', 'vContrast', 'vEdges']) $(id).addEventListener('input', applyVisual);
+  for (const id of ['vPixel', 'vContrast', 'vEdges']) $(id).addEventListener('input', applyVisual);
 
   // ---------- 起動 ----------
 
   function reset() {
-    $('log').innerHTML = '';
+    $('archive').innerHTML = '';
+    $('leadHead').dataset.text = '';
+    edition = 0;
     setupDice(Number($('diceCount').value));
     setupPlayers(Number($('playerCount').value));
-    log('ゲーム開始！');
+    publish(Press.openingHeadline(state.players), Press.openingBody(state.players));
   }
 
   $('rollBtn').addEventListener('click', takeTurn);
@@ -746,6 +790,7 @@
     if (e.code === 'KeyR') resetView();
   });
 
+  $('today').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   state.squares = loadSquares();
   updateCamera();
   resize();
