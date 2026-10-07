@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scape — Board Prototype</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app">
+    <div class="board-wrap">
+      <!-- 9列 × 8行 の外周 = 30マス -->
+      <div class="board" id="board">
+        <div class="center">
+          <h1 class="title">SCAPE</h1>
+
+          <div class="turn" id="turn"></div>
+
+          <div class="dice-tray" id="diceTray"></div>
+          <div class="dice-total" id="diceTotal">&nbsp;</div>
+
+          <button class="btn primary" id="rollBtn">サイコロを振る</button>
+
+          <ol class="log" id="log"></ol>
+        </div>
+        <div class="pieces" id="pieces"></div>
+      </div>
+    </div>
+
+    <aside class="panel">
+      <section>
+        <h2>セットアップ</h2>
+        <label class="row">
+          プレイヤー数
+          <select id="playerCount">
+            <option>1</option><option selected>2</option><option>3</option><option>4</option>
+          </select>
+        </label>
+        <label class="row">
+          サイコロの数
+          <select id="diceCount">
+            <option selected>1</option><option>2</option><option>3</option>
+          </select>
+        </label>
+        <label class="row">
+          <span>1マスずつ歩く</span>
+          <input type="checkbox" id="stepMove" checked>
+        </label>
+        <button class="btn" id="resetBtn">リセット</button>
+      </section>
+
+      <section>
+        <h2>プレイヤー</h2>
+        <ul class="players" id="players"></ul>
+        <p class="hint">コマはドラッグして好きなマスへ動かせます。</p>
+      </section>
+
+      <section>
+        <h2>マス編集</h2>
+        <p class="hint">マスをクリックすると名前・色・アイコンを変えられます。編集内容はブラウザに保存されます。</p>
+        <div class="row gap">
+          <button class="btn" id="exportBtn">JSON書き出し</button>
+          <button class="btn" id="clearSquaresBtn">マスを初期化</button>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <dialog id="squareDialog">
+    <form method="dialog" class="sq-form">
+      <h3 id="sqTitle">マス</h3>
+      <label>名前 <input id="sqName" maxlength="12"></label>
+      <label>アイコン <input id="sqIcon" maxlength="2" placeholder="絵文字など"></label>
+      <div class="swatches" id="sqSwatches"></div>
+      <div class="row gap end">
+        <button class="btn" value="cancel">キャンセル</button>
+        <button class="btn primary" value="ok" id="sqSave">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="js/config.js"></script>
+  <script src="js/dice.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
