@@ -1,14 +1,28 @@
 (() => {
-  const N = CONFIG.squareCount;
-  const COLS = 9;
-  const ROWS = 8; // 外周 = 9*2 + (8-2)*2 = 30
-  const STORAGE_KEY = 'scape.squares.v1';
+  const STORAGE_KEY = 'scape.squares.v2';
+  const TILE_H = 0.3;            // マスの厚み
+  const TOP = TILE_H / 2;        // マス上面の高さ
+  const GROUND = -TILE_H / 2;    // 影を落とす地面の高さ
 
   const $ = (id) => document.getElementById(id);
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  const boardEl = $('board');
-  const piecesEl = $('pieces');
+  // ---------- コース形状 ----------
+
+  const DIR = { E: [1, 0], W: [-1, 0], S: [0, 1], N: [0, -1] };
+  const cells = [{ x: 0, z: 0 }];
+  for (const [d, n] of CONFIG.path) {
+    for (let i = 0; i < n; i++) {
+      const last = cells[cells.length - 1];
+      cells.push({ x: last.x + DIR[d][0], z: last.z + DIR[d][1] });
+    }
+  }
+  cells.pop(); // 最後は START に戻ってくるので除く
+  const N = cells.length;
+
+  const minX = Math.min(...cells.map((c) => c.x)), maxX = Math.max(...cells.map((c) => c.x));
+  const minZ = Math.min(...cells.map((c) => c.z)), maxZ = Math.max(...cells.map((c) => c.z));
+  const center = new THREE.Vector3((minX + maxX) / 2, 0, (minZ + maxZ) / 2);
 
   const state = {
     squares: [],
@@ -18,31 +32,101 @@
     busy: false,
   };
 
-  // ---------- マス ----------
+  // ---------- Three.js 基本 ----------
 
-  // マス番号 → グリッド座標（左上がスタート、時計回り）
-  function gridPos(i) {
-    if (i < COLS) return { col: i + 1, row: 1 };                       // 上辺 →
-    i -= COLS;
-    if (i < ROWS - 1) return { col: COLS, row: i + 2 };                // 右辺 ↓
-    i -= ROWS - 1;
-    if (i < COLS - 1) return { col: COLS - 1 - i, row: ROWS };         // 下辺 ←
-    i -= COLS - 1;
-    return { col: 1, row: ROWS - 1 - i };                              // 左辺 ↑
+  const stage = $('stage');
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  stage.prepend(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+
+  scene.add(new THREE.HemisphereLight(0xfff6e8, 0x6a7a8c, 1.6));
+  const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+  sun.position.set(center.x - 6, 12, center.z - 3);
+  sun.target.position.copy(center);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10 });
+  sun.shadow.bias = -0.0005;
+  scene.add(sun, sun.target);
+
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(80, 80),
+    new THREE.ShadowMaterial({ opacity: 0.18 }),
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.set(center.x, GROUND, center.z);
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // ---------- カメラ（アイソメトリック） ----------
+
+  const view = { angle: Math.PI * 1.25, zoom: 1 };
+  const ELEV = Math.tan(Math.PI / 6); // 30° 見下ろし（ドット絵の 2:1 アイソメ）
+
+  function updateCamera() {
+    const R = 30;
+    camera.position.set(
+      center.x + Math.cos(view.angle) * R,
+      R * ELEV,
+      center.z + Math.sin(view.angle) * R,
+    );
+    camera.lookAt(center);
   }
 
-  // 進行方向（矢印表示用）
-  function direction(i) {
-    const a = gridPos(i), b = gridPos((i + 1) % N);
-    if (b.col > a.col) return '→';
-    if (b.col < a.col) return '←';
-    if (b.row > a.row) return '↓';
-    return '↑';
+  function resize() {
+    const w = stage.clientWidth, h = stage.clientHeight;
+    renderer.setSize(w, h);
+    const aspect = w / h;
+    const span = (maxX - minX + maxZ - minZ + 6) / Math.SQRT2; // 斜めから見たときの幅
+    const halfH = Math.max(span * 0.36, (span / 2 + 0.6) / aspect) / view.zoom;
+    Object.assign(camera, { left: -halfH * aspect, right: halfH * aspect, top: halfH, bottom: -halfH });
+    camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(resize).observe(stage);
+
+  async function rotateView(dir) {
+    const from = view.angle, to = from + dir * Math.PI / 2;
+    await tween(450, (t) => { view.angle = from + (to - from) * ease(t); updateCamera(); });
+  }
+
+  stage.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    view.zoom = Math.min(3, Math.max(0.6, view.zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1)));
+    resize();
+  }, { passive: false });
+
+  // ---------- アニメーション ----------
+
+  const tweens = new Set();
+  const tween = (dur, fn) => new Promise((res) => tweens.add({ t0: performance.now(), dur, fn, res }));
+  const ease = (t) => 1 - Math.pow(1 - t, 3);
+  const frameHooks = [];
+
+  renderer.setAnimationLoop((now) => {
+    for (const tw of [...tweens]) {
+      const t = Math.min(1, (now - tw.t0) / tw.dur);
+      tw.fn(t);
+      if (t >= 1) { tweens.delete(tw); tw.res(); }
+    }
+    for (const f of frameHooks) f(now / 1000);
+    renderer.render(scene, camera);
+  });
+
+  // ---------- マス ----------
+
+  function terrainOf(i) {
+    const z = CONFIG.zones.find(([a, b]) => i >= a && i <= b);
+    return z ? z[2] : 'grass';
   }
 
   function defaultSquares() {
     return Array.from({ length: N }, (_, i) => ({
-      name: '', icon: '', color: 'none', type: 'normal',
+      name: '', icon: '', terrain: terrainOf(i), type: 'normal',
       ...(CONFIG.defaultSquares[i] || {}),
     }));
   }
@@ -59,132 +143,196 @@
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.squares)); } catch (_) {}
   }
 
-  function renderBoard() {
-    boardEl.querySelectorAll('.cell').forEach((c) => c.remove());
-    state.squares.forEach((sq, i) => {
-      const { col, row } = gridPos(i);
-      const cell = document.createElement('button');
-      cell.className = `cell type-${sq.type || 'normal'}`;
-      cell.dataset.index = i;
-      cell.style.gridColumn = col;
-      cell.style.gridRow = row;
-      cell.style.setProperty('--sq', (CONFIG.palette[sq.color] || CONFIG.palette.none).color);
-      cell.innerHTML = `
-        <span class="no">${i}</span>
-        <span class="dir">${direction(i)}</span>
-        <span class="icon">${escapeHtml(sq.icon || '')}</span>
-        <span class="name">${escapeHtml(sq.name || '')}</span>`;
-      cell.addEventListener('click', () => openSquareEditor(i));
-      boardEl.insertBefore(cell, piecesEl);
-    });
-  }
+  const tileGeo = new THREE.BoxGeometry(0.94, TILE_H, 0.94);
+  const tiles = [];
+  const sideMats = Object.fromEntries(Object.entries(CONFIG.terrains).map(([k, t]) =>
+    [k, new THREE.MeshLambertMaterial({ color: t.side })]));
+  const bottomMat = new THREE.MeshLambertMaterial({ color: 0x4a3f33 });
 
-  function escapeHtml(s) {
-    return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  }
-
-  // ---------- マス編集 ----------
-
-  const dialog = $('squareDialog');
-  let editing = -1;
-  let editingColor = 'none';
-
-  function openSquareEditor(i) {
-    if (dragJustEnded) return;
-    editing = i;
+  function buildTile(i) {
     const sq = state.squares[i];
-    $('sqTitle').textContent = `マス ${i}`;
-    $('sqName').value = sq.name;
-    $('sqIcon').value = sq.icon;
-    editingColor = sq.color;
-    renderSwatches();
-    dialog.showModal();
+    const old = tiles[i];
+    if (old) {
+      scene.remove(old);
+      old.userData.top.map.dispose();
+      old.userData.top.dispose();
+    }
+    const top = new THREE.MeshLambertMaterial({ map: Textures.tile(sq.terrain, i, sq) });
+    const side = sideMats[sq.terrain] || sideMats.grass;
+    const mesh = new THREE.Mesh(tileGeo, [side, side, top, bottomMat, side, side]);
+    mesh.position.set(cells[i].x, 0, cells[i].z);
+    mesh.castShadow = mesh.receiveShadow = true;
+    mesh.userData = { index: i, top, terrain: sq.terrain };
+    scene.add(mesh);
+    tiles[i] = mesh;
   }
 
-  function renderSwatches() {
-    const wrap = $('sqSwatches');
-    wrap.innerHTML = '';
-    for (const [key, p] of Object.entries(CONFIG.palette)) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'swatch' + (key === editingColor ? ' on' : '');
-      b.style.background = p.color;
-      b.title = p.label;
-      b.addEventListener('click', () => { editingColor = key; renderSwatches(); });
-      wrap.appendChild(b);
+  function buildBoard() {
+    for (let i = 0; i < N; i++) buildTile(i);
+  }
+
+  // 溶岩はゆらゆら光る、水はゆっくり揺れる
+  frameHooks.push((t) => {
+    for (const m of tiles) {
+      const { terrain, top, index } = m.userData;
+      if (m === hovered) continue;
+      if (terrain === 'lava') top.emissive.setRGB(0.25 + 0.15 * Math.sin(t * 2 + index), 0.05, 0);
+      else top.emissive.setRGB(0, 0, 0);
+      m.position.y = terrain === 'water' ? Math.sin(t * 1.5 + index * 0.7) * 0.025 : 0;
+    }
+  });
+
+  // ---------- 建物 ----------
+
+  const mat = (color, opts = {}) => new THREE.MeshLambertMaterial({ color, flatShading: true, ...opts });
+  const STONE = mat(0xc9c2b6), STONE_D = mat(0x9a9286), ROOF_R = mat(0xc8402e), ROOF_B = mat(0x3b6fc4);
+  const DARK = mat(0x3a2f26), FLAG = mat(0xe8463a, { side: THREE.DoubleSide });
+
+  function part(geo, material, x, y, z) {
+    const m = new THREE.Mesh(geo, material);
+    m.position.set(x, y, z);
+    m.castShadow = m.receiveShadow = true;
+    return m;
+  }
+
+  function flag(x, y, z) {
+    const g = new THREE.Group();
+    g.add(part(new THREE.CylinderGeometry(0.015, 0.015, 0.4), DARK, 0, 0.2, 0));
+    const f = part(new THREE.PlaneGeometry(0.22, 0.13), FLAG, 0.11, 0.33, 0);
+    g.add(f);
+    g.position.set(x, y, z);
+    frameHooks.push((t) => { f.rotation.y = Math.sin(t * 3 + x) * 0.35; });
+    return g;
+  }
+
+  function crenels(g, w, y, material) {
+    const geo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+    for (let k = -2; k <= 2; k += 2) {
+      for (const [x, z] of [[k * w / 4, -w / 2], [k * w / 4, w / 2], [-w / 2, k * w / 4], [w / 2, k * w / 4]]) {
+        g.add(part(geo, material, x, y, z));
+      }
     }
   }
 
-  dialog.addEventListener('close', () => {
-    if (dialog.returnValue !== 'ok' || editing < 0) return;
-    Object.assign(state.squares[editing], {
-      name: $('sqName').value.trim(),
-      icon: $('sqIcon').value.trim(),
-      color: editingColor,
+  const BUILDERS = {
+    tower() {
+      const g = new THREE.Group();
+      g.add(part(new THREE.CylinderGeometry(0.28, 0.32, 1.0, 8), STONE, 0, 0.5, 0));
+      g.add(part(new THREE.CylinderGeometry(0.36, 0.36, 0.12, 8), STONE_D, 0, 1.04, 0));
+      g.add(part(new THREE.ConeGeometry(0.38, 0.5, 8), ROOF_R, 0, 1.35, 0));
+      g.add(part(new THREE.BoxGeometry(0.14, 0.24, 0.05), DARK, 0, 0.12, 0.3));
+      g.add(flag(0, 1.58, 0));
+      return g;
+    },
+    castle() {
+      const g = new THREE.Group();
+      g.add(part(new THREE.BoxGeometry(1.1, 0.6, 1.1), STONE, 0, 0.3, 0));
+      crenels(g, 1.0, 0.65, STONE_D);
+      g.add(part(new THREE.BoxGeometry(0.55, 0.6, 0.55), STONE, 0, 0.9, 0));
+      g.add(part(new THREE.ConeGeometry(0.42, 0.5, 4), ROOF_B, 0, 1.45, 0).rotateY(Math.PI / 4));
+      for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        g.add(part(new THREE.CylinderGeometry(0.16, 0.18, 0.9, 8), STONE, x * 0.55, 0.45, z * 0.55));
+        g.add(part(new THREE.ConeGeometry(0.22, 0.35, 8), ROOF_R, x * 0.55, 1.07, z * 0.55));
+      }
+      g.add(part(new THREE.BoxGeometry(0.26, 0.32, 0.05), DARK, 0, 0.16, 0.56));
+      g.add(part(new THREE.BoxGeometry(0.05, 0.32, 0.26), DARK, 0.56, 0.16, 0));
+      g.add(flag(0, 1.65, 0));
+      return g;
+    },
+  };
+
+  function buildLandmarks() {
+    for (const { at, kind } of CONFIG.landmarks) {
+      const c = cells[at];
+      // コースの外側で、空いている隣のマスに建てる
+      const sx = Math.sign(c.x - center.x), sz = Math.sign(c.z - center.z);
+      const free = (x, z) => !cells.some((o) => o.x === x && o.z === z);
+      const [dx, dz] = [[sx, 0], [0, sz], [sx, sz]].find(([x, z]) => (x || z) && free(c.x + x, c.z + z)) || [sx, sz];
+      const g = BUILDERS[kind]();
+      const base = part(new THREE.BoxGeometry(1.1, TILE_H, 1.1), [sideMats.stone, sideMats.stone, STONE, bottomMat, sideMats.stone, sideMats.stone], 0, 0, 0);
+      const holder = new THREE.Group();
+      holder.add(base);
+      g.position.y = TOP;
+      holder.add(g);
+      holder.position.set(c.x + dx * 1.1, 0, c.z + dz * 1.1);
+      // 正面（扉）をコースの方へ向ける
+      holder.rotation.y = Math.atan2(-dx, -dz);
+      scene.add(holder);
+    }
+  }
+
+  // ---------- コマ ----------
+
+  const pawnGeo = new THREE.LatheGeometry([
+    [0, 0], [0.2, 0], [0.21, 0.04], [0.17, 0.08], [0.11, 0.14], [0.08, 0.3],
+    [0.07, 0.4], [0.13, 0.43], [0.13, 0.46], [0.05, 0.48], [0, 0.48],
+  ].map(([x, y]) => new THREE.Vector2(x, y)), 24);
+  const headGeo = new THREE.SphereGeometry(0.115, 20, 14);
+  const ringGeo = new THREE.TorusGeometry(0.27, 0.025, 8, 32).rotateX(Math.PI / 2);
+  const piecesGroup = new THREE.Group();
+  scene.add(piecesGroup);
+
+  function makePiece(player) {
+    const m = new THREE.MeshStandardMaterial({ color: player.color, roughness: 0.35, metalness: 0.05 });
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(pawnGeo, m);
+    const head = new THREE.Mesh(headGeo, m);
+    head.position.y = 0.58;
+    body.castShadow = head.castShadow = true;
+    const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: player.color }));
+    ring.position.y = 0.02;
+    g.add(body, head, ring);
+    g.userData = { player, ring };
+    piecesGroup.add(g);
+    return g;
+  }
+
+  // 手番のコマの足元の輪を脈動させる
+  frameHooks.push((t) => {
+    for (const p of state.players) {
+      const { ring } = p.obj.userData;
+      ring.visible = p.id === state.current;
+      ring.scale.setScalar(1 + 0.12 * Math.sin(t * 5));
+    }
+  });
+
+  const SLOTS = [[-0.2, -0.2], [0.2, 0.2], [0.2, -0.2], [-0.2, 0.2]];
+
+  function slotOf(player) {
+    const group = state.players.filter((p) => p.pos === player.pos);
+    const k = group.indexOf(player);
+    const [ox, oz] = group.length === 1 ? [0, 0] : SLOTS[k % 4];
+    const c = cells[player.pos];
+    return new THREE.Vector3(c.x + ox, TOP, c.z + oz);
+  }
+
+  // 自分以外のコマを、いるべき位置へ滑らせる
+  function settlePieces(except) {
+    for (const p of state.players) {
+      if (p === except || p.dragging) continue;
+      const from = p.obj.position.clone(), to = slotOf(p);
+      if (from.distanceTo(to) < 1e-3) continue;
+      tween(200, (t) => p.obj.position.lerpVectors(from, to, ease(t)));
+    }
+  }
+
+  function hop(player, height = 0.45, dur = 240) {
+    const from = player.obj.position.clone(), to = slotOf(player);
+    return tween(dur, (t) => {
+      player.obj.position.lerpVectors(from, to, t);
+      player.obj.position.y += Math.sin(Math.PI * t) * height;
     });
-    saveSquares();
-    renderBoard();
-    placePieces();
-  });
-
-  $('exportBtn').addEventListener('click', () => {
-    const blob = new Blob([JSON.stringify(state.squares, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'scape-squares.json';
-    a.click();
-    URL.revokeObjectURL(a.href);
-  });
-
-  $('clearSquaresBtn').addEventListener('click', () => {
-    if (!confirm('マスの編集内容を初期状態に戻しますか？')) return;
-    state.squares = defaultSquares();
-    saveSquares();
-    renderBoard();
-    placePieces();
-  });
-
-  // ---------- プレイヤー / コマ ----------
+  }
 
   function setupPlayers(count) {
-    piecesEl.innerHTML = '';
-    state.players = CONFIG.players.slice(0, count).map((p, id) => {
-      const el = document.createElement('div');
-      el.className = 'piece';
-      el.style.setProperty('--pc', p.color);
-      el.title = p.name;
-      el.innerHTML = `<span>${id + 1}</span>`;
-      piecesEl.appendChild(el);
-      const player = { id, ...p, pos: 0, laps: 0, el };
-      enableDrag(player);
-      return player;
-    });
-    state.current = 0;
-    placePieces();
-    renderPlayers();
-  }
-
-  // 同じマスにいるコマは少しずらして並べる
-  const OFFSETS = [[-0.2, -0.16], [0.2, -0.16], [-0.2, 0.2], [0.2, 0.2]];
-
-  function placePieces() {
-    const boardRect = boardEl.getBoundingClientRect();
-    const byPos = {};
-    for (const p of state.players) (byPos[p.pos] ||= []).push(p);
-
-    for (const [pos, group] of Object.entries(byPos)) {
-      const cell = boardEl.querySelector(`.cell[data-index="${pos}"]`);
-      if (!cell) continue;
-      const r = cell.getBoundingClientRect();
-      group.forEach((p, k) => {
-        if (p.dragging) return;
-        const [ox, oy] = group.length === 1 ? [0, 0.08] : OFFSETS[k % OFFSETS.length];
-        const x = r.left - boardRect.left + r.width * (0.5 + ox);
-        const y = r.top - boardRect.top + r.height * (0.5 + oy);
-        p.el.style.transform = `translate(${x}px, ${y}px)`;
-      });
+    piecesGroup.clear();
+    state.players = CONFIG.players.slice(0, count).map((p, id) => ({ id, ...p, pos: 0, laps: 0 }));
+    for (const p of state.players) {
+      p.obj = makePiece(p);
+      p.obj.position.copy(slotOf(p));
     }
-    for (const p of state.players) p.el.classList.toggle('active', p.id === state.current);
+    state.current = 0;
+    renderPlayers();
   }
 
   function renderPlayers() {
@@ -205,52 +353,55 @@
       : '';
   }
 
-  // ---------- ドラッグで自由に移動 ----------
+  // ---------- サイコロ（3D） ----------
 
-  let dragJustEnded = false;
-
-  function enableDrag(player) {
-    const el = player.el;
-    el.addEventListener('pointerdown', (e) => {
-      if (state.busy) return;
-      e.preventDefault();
-      el.setPointerCapture(e.pointerId);
-      player.dragging = true;
-      el.classList.add('dragging');
-      const boardRect = boardEl.getBoundingClientRect();
-      const move = (ev) => {
-        el.style.transform = `translate(${ev.clientX - boardRect.left}px, ${ev.clientY - boardRect.top}px)`;
-      };
-      const up = (ev) => {
-        el.removeEventListener('pointermove', move);
-        el.removeEventListener('pointerup', up);
-        el.removeEventListener('pointercancel', up);
-        player.dragging = false;
-        el.classList.remove('dragging');
-        const cell = document.elementsFromPoint(ev.clientX, ev.clientY).find((n) => n.classList?.contains('cell'));
-        if (cell) {
-          const to = Number(cell.dataset.index);
-          if (to !== player.pos) log(`${player.name} を マス${to} へ移動`);
-          player.pos = to;
-        }
-        dragJustEnded = true;
-        setTimeout(() => (dragJustEnded = false), 0);
-        placePieces();
-        renderPlayers();
-      };
-      move(e);
-      el.addEventListener('pointermove', move);
-      el.addEventListener('pointerup', up);
-      el.addEventListener('pointercancel', up);
-    });
-  }
-
-  // ---------- サイコロ ----------
+  const dieGeo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+  // BoxGeometry の面順: +x, -x, +y, -y, +z, -z
+  const FACE_ORDER = [3, 4, 2, 5, 1, 6];
+  const dieMats = FACE_ORDER.map((n) => new THREE.MeshLambertMaterial({ map: Textures.dieFace(n) }));
+  const FACE_NORMAL = {
+    3: new THREE.Vector3(1, 0, 0), 4: new THREE.Vector3(-1, 0, 0),
+    2: new THREE.Vector3(0, 1, 0), 5: new THREE.Vector3(0, -1, 0),
+    1: new THREE.Vector3(0, 0, 1), 6: new THREE.Vector3(0, 0, -1),
+  };
+  const UP = new THREE.Vector3(0, 1, 0);
 
   function setupDice(count) {
-    $('diceTray').innerHTML = '';
-    state.dice = Array.from({ length: count }, () => new Die($('diceTray')));
+    for (const d of state.dice) scene.remove(d);
+    state.dice = Array.from({ length: count }, (_, i) => {
+      const d = new THREE.Mesh(dieGeo, dieMats);
+      d.castShadow = true;
+      d.position.copy(diceSpot(i, count));
+      d.quaternion.setFromUnitVectors(FACE_NORMAL[1], UP);
+      scene.add(d);
+      return d;
+    });
     $('diceTotal').innerHTML = '&nbsp;';
+  }
+
+  function diceSpot(i, count) {
+    const off = (i - (count - 1) / 2) * 0.9;
+    return new THREE.Vector3(center.x + off, GROUND + 0.3, center.z + (i % 2) * 0.3);
+  }
+
+  function rollDie(die, i, count) {
+    const value = 1 + Math.floor(Math.random() * 6);
+    const end = diceSpot(i, count);
+    end.x += (Math.random() - 0.5) * 0.3;
+    end.z += (Math.random() - 0.5) * 0.3;
+    // カメラ手前側から投げ込む
+    const start = end.clone().add(new THREE.Vector3(Math.cos(view.angle) * 2.5, 0, Math.sin(view.angle) * 2.5));
+    const qEnd = new THREE.Quaternion().setFromUnitVectors(FACE_NORMAL[value], UP)
+      .premultiply(new THREE.Quaternion().setFromAxisAngle(UP, Math.random() * Math.PI * 2));
+    const axis = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+    const spin = Math.PI * (6 + Math.random() * 4);
+    const qSpin = new THREE.Quaternion();
+    return tween(1100 + i * 120, (t) => {
+      die.position.lerpVectors(start, end, ease(t));
+      die.position.y = end.y + 2.2 * Math.pow(1 - t, 2) * Math.abs(Math.cos(Math.PI * 2.5 * t));
+      qSpin.setFromAxisAngle(axis, Math.pow(1 - t, 2) * spin);
+      die.quaternion.copy(qEnd).multiply(qSpin);
+    }).then(() => value);
   }
 
   // ---------- ターン進行 ----------
@@ -261,7 +412,7 @@
     $('rollBtn').disabled = true;
 
     const player = state.players[state.current];
-    const values = await Promise.all(state.dice.map((d) => d.roll()));
+    const values = await Promise.all(state.dice.map((d, i) => rollDie(d, i, state.dice.length)));
     const total = values.reduce((a, b) => a + b, 0);
     $('diceTotal').textContent = values.length > 1 ? `${values.join(' + ')} = ${total}` : `${total}`;
     log(`${player.name} が ${total} を出した`);
@@ -270,31 +421,27 @@
     RULES.onLand(player, state.squares[player.pos], ruleApi);
 
     state.current = (state.current + 1) % state.players.length;
-    placePieces();
     renderPlayers();
     state.busy = false;
     $('rollBtn').disabled = false;
   }
 
   async function movePlayer(player, steps) {
-    const stepwise = $('stepMove').checked;
-    if (!stepwise) {
+    if (!$('stepMove').checked) {
       const before = player.pos;
       player.pos = (player.pos + steps) % N;
       if (before + steps >= N) passStart(player);
-      placePieces();
-      await sleep(400);
+      settlePieces(player);
+      await hop(player, 1.2, 600);
+      renderPlayers();
       return;
     }
     for (let s = 0; s < steps; s++) {
       player.pos = (player.pos + 1) % N;
       if (player.pos === 0) passStart(player);
-      player.el.classList.remove('hop');
-      void player.el.offsetWidth;
-      player.el.classList.add('hop');
-      placePieces();
+      settlePieces(player);
+      await hop(player);
       renderPlayers();
-      await sleep(230);
     }
   }
 
@@ -303,13 +450,158 @@
     RULES.onPassStart(player, ruleApi);
   }
 
+  // ---------- マウス操作（ドラッグ / クリック / ホバー） ----------
+
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+  const dragPlane = new THREE.Plane(UP, -TOP);
+  let hovered = null;
+  let drag = null;
+  let press = null;
+
+  function setPointer(e) {
+    const r = renderer.domElement.getBoundingClientRect();
+    pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    raycaster.setFromCamera(pointer, camera);
+  }
+
+  const tileAt = () => raycaster.intersectObjects(tiles, false)[0]?.object || null;
+
+  function pieceAt() {
+    let o = raycaster.intersectObjects(piecesGroup.children, true)[0]?.object;
+    while (o && !o.userData.player) o = o.parent;
+    return o?.userData.player || null;
+  }
+
+  function setHover(tile) {
+    if (hovered === tile) return;
+    if (hovered) hovered.userData.top.emissive.setRGB(0, 0, 0);
+    hovered = tile;
+    if (hovered) hovered.userData.top.emissive.setRGB(0.18, 0.18, 0.14);
+  }
+
+  const canvas = renderer.domElement;
+
+  canvas.addEventListener('pointerdown', (e) => {
+    setPointer(e);
+    const player = state.busy ? null : pieceAt();
+    if (player) {
+      drag = player;
+      player.dragging = true;
+      canvas.setPointerCapture(e.pointerId);
+      canvas.style.cursor = 'grabbing';
+      return;
+    }
+    const tile = tileAt();
+    press = tile ? { tile, x: e.clientX, y: e.clientY } : null;
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    setPointer(e);
+    if (drag) {
+      const p = new THREE.Vector3();
+      if (raycaster.ray.intersectPlane(dragPlane, p)) drag.obj.position.set(p.x, TOP + 0.35, p.z);
+      // コマの下にあるマスを光らせる（コマ自身は無視するため地面方向で判定）
+      setHover(tileAt());
+      return;
+    }
+    setHover(tileAt());
+    canvas.style.cursor = pieceAt() && !state.busy ? 'grab' : hovered ? 'pointer' : '';
+  });
+
+  canvas.addEventListener('pointerup', (e) => {
+    setPointer(e);
+    if (drag) {
+      const player = drag;
+      drag = null;
+      player.dragging = false;
+      canvas.style.cursor = '';
+      const tile = tileAt();
+      if (tile && tile.userData.index !== player.pos) {
+        player.pos = tile.userData.index;
+        log(`${player.name} を マス${player.pos} へ移動`);
+      }
+      hop(player, 0.15, 160);
+      settlePieces(player);
+      renderPlayers();
+      return;
+    }
+    if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 6 && tileAt() === press.tile) {
+      openSquareEditor(press.tile.userData.index);
+    }
+    press = null;
+  });
+
+  canvas.addEventListener('pointerleave', () => !drag && setHover(null));
+
+  // ---------- マス編集 ----------
+
+  const dialog = $('squareDialog');
+  let editing = -1;
+  let editingTerrain = 'grass';
+
+  function openSquareEditor(i) {
+    editing = i;
+    const sq = state.squares[i];
+    $('sqTitle').textContent = `マス ${i}`;
+    $('sqName').value = sq.name;
+    $('sqIcon').value = sq.icon;
+    editingTerrain = sq.terrain;
+    renderSwatches();
+    dialog.showModal();
+  }
+
+  function renderSwatches() {
+    const wrap = $('sqSwatches');
+    wrap.innerHTML = '';
+    for (const [key, t] of Object.entries(CONFIG.terrains)) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'swatch' + (key === editingTerrain ? ' on' : '');
+      b.style.background = t.base;
+      b.style.borderBottomColor = t.side;
+      b.textContent = t.label;
+      b.addEventListener('click', () => { editingTerrain = key; renderSwatches(); });
+      wrap.appendChild(b);
+    }
+  }
+
+  dialog.addEventListener('close', () => {
+    if (dialog.returnValue !== 'ok' || editing < 0) return;
+    Object.assign(state.squares[editing], {
+      name: $('sqName').value.trim(),
+      icon: $('sqIcon').value.trim(),
+      terrain: editingTerrain,
+    });
+    saveSquares();
+    if (hovered === tiles[editing]) hovered = null;
+    buildTile(editing);
+  });
+
+  $('exportBtn').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(state.squares, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'scape-squares.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  $('clearSquaresBtn').addEventListener('click', () => {
+    if (!confirm('マスの編集内容を初期状態に戻しますか？')) return;
+    state.squares = defaultSquares();
+    saveSquares();
+    hovered = null;
+    buildBoard();
+  });
+
   // ---------- ログ ----------
 
   function log(text) {
     const li = document.createElement('li');
     li.textContent = text;
     $('log').prepend(li);
-    while ($('log').children.length > 30) $('log').lastChild.remove();
+    while ($('log').children.length > 50) $('log').lastChild.remove();
   }
 
   const ruleApi = { log, state };
@@ -324,18 +616,24 @@
   }
 
   $('rollBtn').addEventListener('click', takeTurn);
+  $('rotL').addEventListener('click', () => rotateView(-1));
+  $('rotR').addEventListener('click', () => rotateView(1));
   $('resetBtn').addEventListener('click', () => !state.busy && reset());
   $('playerCount').addEventListener('change', () => !state.busy && reset());
   $('diceCount').addEventListener('change', () => !state.busy && setupDice(Number($('diceCount').value)));
   document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && !dialog.open && document.activeElement?.tagName !== 'INPUT') {
-      e.preventDefault();
-      takeTurn();
-    }
+    if (dialog.open || ['INPUT', 'SELECT'].includes(document.activeElement?.tagName)) return;
+    if (e.code === 'Space') { e.preventDefault(); takeTurn(); }
+    if (e.code === 'KeyQ') rotateView(-1);
+    if (e.code === 'KeyE') rotateView(1);
   });
-  new ResizeObserver(placePieces).observe(boardEl);
 
   state.squares = loadSquares();
-  renderBoard();
+  updateCamera();
+  resize();
+  buildBoard();
+  buildLandmarks();
   reset();
+
+  window.scape = { state, rotateView, camera, cells }; // デバッグ用
 })();

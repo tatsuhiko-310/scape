@@ -1,31 +1,44 @@
 // ゲームの「データ」はここにまとめる。ルールが決まってきたらここを育てていく。
 
 const CONFIG = {
-  squareCount: 30,
+  // 一周のコース。START から一歩ずつの向き（E/W/S/N）と歩数。
+  // 合計 30 歩で START に戻ってくる形にしておくこと。
+  path: [['E', 6], ['S', 2], ['E', 2], ['S', 5], ['W', 4], ['N', 1], ['W', 4], ['N', 6]],
 
-  // マスの色パレット（編集ダイアログの選択肢にもなる）
-  palette: {
-    none:   { label: 'なし',  color: '#f4efe6' },
-    red:    { label: '赤',    color: '#f3b6a8' },
-    orange: { label: '橙',    color: '#f6d29a' },
-    green:  { label: '緑',    color: '#b9dfb0' },
-    blue:   { label: '青',    color: '#a9cdea' },
-    purple: { label: '紫',    color: '#cdb8e6' },
-    gray:   { label: '灰',    color: '#cfcac2' },
+  // 地形（マスの見た目）。base = 地面の色, side = 側面の色
+  terrains: {
+    grass: { label: '草原', base: '#58b947', side: '#3c7d2f' },
+    sand:  { label: '砂漠', base: '#dcb54a', side: '#9c7a26' },
+    water: { label: '水辺', base: '#3d8fe0', side: '#245e9e' },
+    lava:  { label: '溶岩', base: '#d9472b', side: '#8a2716' },
+    stone: { label: '石畳', base: '#b9b3a8', side: '#7a7368' },
   },
 
-  // 初期のマス。index 0 がスタート。足りない分は空白マスになる。
-  // type は将来ルールを書くときのフック用（今は見た目だけ）。
+  // 範囲ごとの地形。[開始, 終了(含む), 地形]
+  zones: [
+    [0, 0, 'stone'],
+    [1, 7, 'grass'],
+    [8, 14, 'sand'],
+    [15, 15, 'stone'],
+    [16, 22, 'water'],
+    [23, 29, 'lava'],
+  ],
+
+  // 個別のマス（名前・アイコン）。type は将来ルールを書くときのフック用。
   defaultSquares: {
-    0:  { name: 'START', icon: '🚩', color: 'orange', type: 'start' },
-    5:  { name: '',      icon: '★',  color: 'blue' },
-    8:  { name: '',      icon: '',   color: 'gray',  type: 'corner' },
-    10: { name: '',      icon: '?',  color: 'green' },
-    15: { name: '',      icon: '★',  color: 'red',   type: 'corner' },
-    20: { name: '',      icon: '?',  color: 'green' },
-    23: { name: '',      icon: '',   color: 'gray',  type: 'corner' },
-    25: { name: '',      icon: '★',  color: 'purple' },
+    0:  { name: 'START', icon: '', type: 'start' },
+    5:  { icon: '★' },
+    10: { icon: '?' },
+    15: { name: 'CASTLE', icon: '', type: 'castle' },
+    20: { icon: '?' },
+    25: { icon: '★' },
   },
+
+  // コースの外に置く建物 { at: そばに置くマス, kind }
+  landmarks: [
+    { at: 0,  kind: 'tower' },
+    { at: 15, kind: 'castle' },
+  ],
 
   players: [
     { name: 'あか',   color: '#e2504c' },
@@ -36,7 +49,7 @@ const CONFIG = {
 };
 
 // ルールのフック。ルールが決まったらここに処理を書く。
-// main.js から呼ばれる。log(text) で中央のログに出せる。
+// main.js から呼ばれる。log(text) でログに出せる。
 const RULES = {
   // スタートを通過/到着したとき
   onPassStart(player, { log }) {

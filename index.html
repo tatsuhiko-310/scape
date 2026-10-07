@@ -8,22 +8,17 @@
 </head>
 <body>
   <div class="app">
-    <div class="board-wrap">
-      <!-- 9列 × 8行 の外周 = 30マス -->
-      <div class="board" id="board">
-        <div class="center">
-          <h1 class="title">SCAPE</h1>
-
-          <div class="turn" id="turn"></div>
-
-          <div class="dice-tray" id="diceTray"></div>
-          <div class="dice-total" id="diceTotal">&nbsp;</div>
-
-          <button class="btn primary" id="rollBtn">サイコロを振る</button>
-
-          <ol class="log" id="log"></ol>
+    <div class="stage" id="stage">
+      <div class="hud top">
+        <div class="turn" id="turn"></div>
+        <div class="view-btns">
+          <button class="btn icon" id="rotL" title="左に回す (Q)">⟲</button>
+          <button class="btn icon" id="rotR" title="右に回す (E)">⟳</button>
         </div>
-        <div class="pieces" id="pieces"></div>
+      </div>
+      <div class="hud bottom">
+        <div class="dice-total" id="diceTotal">&nbsp;</div>
+        <button class="btn primary" id="rollBtn">サイコロを振る</button>
       </div>
     </div>
 
@@ -52,12 +47,17 @@
       <section>
         <h2>プレイヤー</h2>
         <ul class="players" id="players"></ul>
-        <p class="hint">コマはドラッグして好きなマスへ動かせます。</p>
+        <p class="hint">コマはドラッグして好きなマスへ動かせます。<br>ホイールで拡大縮小、Q / E で視点を回転。</p>
+      </section>
+
+      <section>
+        <h2>ログ</h2>
+        <ol class="log" id="log"></ol>
       </section>
 
       <section>
         <h2>マス編集</h2>
-        <p class="hint">マスをクリックすると名前・色・アイコンを変えられます。編集内容はブラウザに保存されます。</p>
+        <p class="hint">マスをクリックすると名前・アイコン・地形を変えられます。編集内容はブラウザに保存されます。</p>
         <div class="row gap">
           <button class="btn" id="exportBtn">JSON書き出し</button>
           <button class="btn" id="clearSquaresBtn">マスを初期化</button>
@@ -69,18 +69,19 @@
   <dialog id="squareDialog">
     <form method="dialog" class="sq-form">
       <h3 id="sqTitle">マス</h3>
-      <label>名前 <input id="sqName" maxlength="12"></label>
+      <label>名前 <input id="sqName" maxlength="8"></label>
       <label>アイコン <input id="sqIcon" maxlength="2" placeholder="絵文字など"></label>
       <div class="swatches" id="sqSwatches"></div>
       <div class="row gap end">
         <button class="btn" value="cancel">キャンセル</button>
-        <button class="btn primary" value="ok" id="sqSave">保存</button>
+        <button class="btn primary" value="ok">保存</button>
       </div>
     </form>
   </dialog>
 
+  <script src="vendor/three.min.js"></script>
   <script src="js/config.js"></script>
-  <script src="js/dice.js"></script>
+  <script src="js/textures.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>
