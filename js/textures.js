@@ -17,6 +17,32 @@ const Textures = (() => {
   }
 
   const patterns = {
+    road(g, base, rand) {                           // アスファルト：細かい粒とひび
+      for (let i = 0; i < 60; i++) dot(g, rand, shade(base, rand() < .5 ? -.1 : .08));
+      g.fillStyle = shade(base, -.2);
+      let x = Math.floor(rand() * PX), y = 0;
+      for (let s = 0; s < 10; s++) { g.fillRect(x, y, 1, 1); x += rand() < .5 ? 1 : -1; y += 1 + Math.floor(rand() * 2); }
+    },
+    factory(g, base) {                              // 縞鋼板
+      g.fillStyle = shade(base, .16);
+      for (let y = 1; y < PX; y += 4) for (let x = (y >> 2) % 2 ? 0 : 2; x < PX; x += 4) { g.fillRect(x, y, 2, 1); }
+      g.fillStyle = shade(base, -.18);
+      for (let y = 2; y < PX; y += 4) for (let x = (y >> 2) % 2 ? 1 : 3; x < PX; x += 4) { g.fillRect(x, y, 2, 1); }
+    },
+    mall(g, base) {                                 // 床タイルの市松
+      g.fillStyle = shade(base, -.12);
+      for (let y = 0; y < PX; y += 4) for (let x = (y / 4) % 2 ? 0 : 4; x < PX; x += 8) g.fillRect(x, y, 4, 4);
+    },
+    outpost(g, base, rand) {                        // 土嚢と迷彩のまだら
+      for (let i = 0; i < 6; i++) {
+        g.fillStyle = shade(base, rand() < .5 ? -.15 : .1);
+        g.fillRect(Math.floor(rand() * 13), Math.floor(rand() * 13), 2 + Math.floor(rand() * 3), 2 + Math.floor(rand() * 2));
+      }
+    },
+    hospital(g, base) {                             // 白いタイルの目地
+      g.fillStyle = shade(base, -.1);
+      for (let i = 0; i < PX; i += 4) { g.fillRect(i, 0, 1, PX); g.fillRect(0, i, PX, 1); }
+    },
     grass(g, base, rand) {
       for (let i = 0; i < 40; i++) dot(g, rand, shade(base, rand() < .5 ? -.07 : .07));
       for (let i = 0; i < 5; i++) {               // 草の房
@@ -76,13 +102,13 @@ const Textures = (() => {
 
   // マス上面のテクスチャ
   function tile(terrainKey, index, sq) {
-    const terrain = CONFIG.terrains[terrainKey] || CONFIG.terrains.grass;
+    const terrain = CONFIG.terrains[terrainKey] || Object.values(CONFIG.terrains)[0];
     const small = document.createElement('canvas');
     small.width = small.height = PX;
     const g = small.getContext('2d');
     g.fillStyle = terrain.base;
     g.fillRect(0, 0, PX, PX);
-    (patterns[terrainKey] || patterns.grass)(g, terrain.base, rng(index + 7));
+    (patterns[terrainKey] || patterns.road)(g, terrain.base, rng(index + 7));
     g.fillStyle = shade(terrain.base, .15);        // 縁のハイライト
     g.fillRect(0, 0, PX, 1); g.fillRect(0, 0, 1, PX);
     g.fillStyle = shade(terrain.base, -.3);        // 縁の影（白黒でもマスの境目が見えるように）

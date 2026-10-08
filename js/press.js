@@ -32,7 +32,7 @@ const Press = (() => {
     const mood = pick(['a bold', 'a measured', 'an unhurried', 'a decisive', 'a curious', 'a quietly confident']);
     const lines = [
       `In what onlookers described as ${mood} turn, ${player.name} cast the die, which came up ${word(total).toLowerCase()}.`,
-      `The piece left square ${from} and came to rest on square ${player.pos}, in the ${terrainName(sq).toLowerCase()}.`,
+      `The piece left square ${from} and came to rest on square ${player.pos}, ${sq.terrain === 'road' ? 'on' : 'at'} the ${terrainName(sq).toLowerCase()}.`,
     ];
     lines.push(...notes);
     lines.push(pick([
@@ -45,37 +45,42 @@ const Press = (() => {
 
   function openingHeadline(players) {
     return players.length === 1
-      ? `${players[0].name} Sets Out Alone on the Thirty-Square Course`
-      : `${word(players.length)} Pieces Gather at the Starting Tower`;
+      ? `${players[0].name} Sets Out Alone on the Road`
+      : `${word(players.length)} Pieces Gather at the Starting Point`;
   }
 
   function openingBody(players) {
     const names = players.map((p) => p.name);
     const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0];
     return `A new game opened this morning as ${list} took their places on square 0. ` +
-      'The course runs thirty squares through meadow, desert, waters and lava fields before returning to the tower. ' +
+      `The course runs ${MAP.tiles.length} squares of road between ${joinList(MAP.areas.filter((a) => a.terrain !== 'road').map((a) => a.label.replace(/^The /, 'the ')))}. ` +
       'The rules, sources say, are still being written.';
   }
 
   // ロケーション欄
   const TERRAIN_NOTES = {
-    grass: 'Open meadow. Good going underfoot, and very little cover.',
-    sand: 'Desert country. The heat slows every step and the wind fills every pack.',
-    water: 'Low ground by the water. Nobody keeps their boots dry here for long.',
-    lava: 'Scorched fields, still smoking from the last bombardment.',
-    stone: 'Cobbled ground in the shadow of the fortifications.',
+    road: 'Open road. Craters every few yards and nowhere to hide.',
+    factory: 'The works yard of the old factory. Rusted plate underfoot and a chimney still standing.',
+    mall: 'The shopping mall, looted bare. Glass crunches on the tiled floor.',
+    outpost: 'A sandbagged outpost. The flag is still up, the garrison is not.',
+    hospital: 'The hospital grounds. The red cross on the roof has faded to grey.',
   };
 
   function placeTitle(pos, sq) {
     return `Square ${pos} — ${sq.name ? titleCase(sq.name) : `The ${terrainName(sq)}`}`;
   }
 
-  function locationNote(player, sq, others) {
+  function locationNote(player, sq, others, exits, area) {
     const lines = [TERRAIN_NOTES[sq.terrain] || ''];
+    if (exits > 2) lines.push(`The road divides here into ${word(exits).toLowerCase()} ways.`);
     if (sq.icon) lines.push(`A mark reading "${sq.icon}" has been chalked on the ground.`);
     if (others.length) lines.push(`Also here: ${others.map((p) => p.name).join(', ')}.`);
-    lines.push(player.laps ? `${player.name} is on lap ${player.laps + 1}.` : `${player.name} has yet to complete a lap.`);
-    return lines.join(' ');
+    return lines.filter(Boolean).join(' ');
+  }
+
+
+  function joinList(names) {
+    return names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0] || '';
   }
 
   function titleCase(s) {

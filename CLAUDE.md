@@ -15,7 +15,8 @@
 
 ## 構成
 
-- `js/config.js` … コース・地形・プレイヤー・ルールのフック（`RULES`）
+- `js/map.js` … マスの配置とエリア（マップエディタの db `maps/main` から書き出す。エリアごとに英語名 `label` と見た目 `terrain` を付ける）
+- `js/config.js` … 地形の見た目・建物（`landmarks`）・プレイヤー・ルールのフック（`RULES`）
 - `js/press.js` … 記事の文面
 - `js/ledger.js` … プレイヤーボード（装備枠・バックパックのマス目・補給所・ドラッグ操作）
 - `js/portraits.js` … プレイヤーボード背景の写真（`assets/portraits/`）を実行時に Bayer ディザで 2 値化。写真は必ずこれを通す
@@ -28,8 +29,14 @@
 
 - `tools/map-editor.html` を Artifact として公開している：https://claude.ai/artifact/7dhp3iQe2MUFbZArg6BjxR
 - ユーザーがマス目・エリア（模様と自由記述の説明）を編集すると、その Artifact の db の `maps/main` に保存される。
-  マップについて指示されたら `ArtifactData` の get（collection `maps`, doc_id `main`）で読んでから作業する。
+  マップについて指示されたら `ArtifactData` の get（collection `maps`, doc_id `main`）で読んでから作業し、`js/map.js` に書き出す。
+  新しいエリアが増えたら `CONFIG.terrains`・`js/textures.js` の模様・`js/press.js` の `TERRAIN_NOTES`・必要なら建物も足す。
   中身：`cols`, `rows`, `tiles[{x, y, area, n}]`（n = 進む順番、0 が START）, `areas[{id, name, pattern, notes}]`。
+
+## 移動
+
+- 駒は上下左右につながったマスを 1 歩ずつ進む。来たマスには戻らず、行き止まりでは引き返す。
+- 分かれ道では候補のマスに印（逆さの三角）が出て、プレイヤーがクリックで選ぶ（`chooseWay`）。
 
 ## 公開と更新
 

@@ -1,43 +1,29 @@
 // ゲームの「データ」はここにまとめる。ルールが決まってきたらここを育てていく。
 
 const CONFIG = {
-  // 一周のコース。START から一歩ずつの向き（E/W/S/N）と歩数。
-  // 合計 30 歩で START に戻ってくる形にしておくこと。
-  path: [['E', 6], ['S', 2], ['E', 2], ['S', 5], ['W', 4], ['N', 1], ['W', 4], ['N', 6]],
+  // マスの配置は js/map.js（マップエディタから書き出し）。
 
-  // 地形（マスの見た目）。base = 地面の色, side = 側面の色
+  // 地形（マスの見た目）。base = 地面の色, side = 側面の色（表示はディザで白黒になるので明るさの差が大事）
   terrains: {
-    grass: { label: 'Meadow', base: '#4f9a3c', side: '#2c5a22' },
-    sand:  { label: 'Desert', base: '#e3c766', side: '#9c7a26' },
-    water: { label: 'Waters', base: '#3a73b8', side: '#1d406e' },
-    lava:  { label: 'Lava Fields', base: '#b8361f', side: '#5e1a0e' },
-    stone: { label: 'Cobblestone', base: '#cfcac0', side: '#7a7368' },
+    road:     { label: 'Road',          base: '#6e6c68', side: '#34322f' },
+    factory:  { label: 'Factory',       base: '#8d9196', side: '#45484c' },
+    mall:     { label: 'Shopping Mall', base: '#d9d5cc', side: '#87837b' },
+    outpost:  { label: 'Outpost',       base: '#a8996a', side: '#5c5233' },
+    hospital: { label: 'Hospital',      base: '#efeee9', side: '#9b9a95' },
   },
-
-  // 範囲ごとの地形。[開始, 終了(含む), 地形]
-  zones: [
-    [0, 0, 'stone'],
-    [1, 7, 'grass'],
-    [8, 14, 'sand'],
-    [15, 15, 'stone'],
-    [16, 22, 'water'],
-    [23, 29, 'lava'],
-  ],
 
   // 個別のマス（名前・アイコン）。type は将来ルールを書くときのフック用。
   defaultSquares: {
-    0:  { name: 'START', icon: '', type: 'start' },
-    5:  { icon: '★' },
-    10: { icon: '?' },
-    15: { name: 'CASTLE', icon: '', type: 'castle' },
-    20: { icon: '?' },
-    25: { icon: '★' },
+    0: { name: 'START', icon: '', type: 'start' },
   },
 
-  // コースの外に置く建物 { at: そばに置くマス, kind }
+  // 盤に置く建物 { x, y = 盤上の位置（マップエディタと同じ座標）, kind }
+  // 各エリアの輪の内側（空いているマス）に建てている
   landmarks: [
-    { at: 0,  kind: 'tower' },
-    { at: 15, kind: 'castle' },
+    { x: 11, y: 6,  kind: 'factory' },
+    { x: 3,  y: 6,  kind: 'mall' },
+    { x: 3,  y: 14, kind: 'outpost' },
+    { x: 11, y: 14, kind: 'hospital' },
   ],
 
   // shape: 頭の形 / tone: コマの色（light=白, dark=黒）。表示は常にモノクロ
@@ -47,10 +33,10 @@ const CONFIG = {
   // exposure: 明るさの足し引き（暗い写真はプラスに）
   // assets/portraits/p3.jpg は予備
   players: [
-    { name: 'Circle',   shape: 'sphere', tone: 'light', portrait: 'assets/portraits/p1.jpg?v=11', head: { top: 0.02, chin: 0.41, x: 0.50 } },
-    { name: 'Square',   shape: 'cube',   tone: 'dark',  portrait: 'assets/portraits/p2.jpg?v=11', head: { top: 0.02, chin: 0.46, x: 0.46 }, exposure: -0.12 },
-    { name: 'Triangle', shape: 'cone',   tone: 'light', portrait: 'assets/portraits/p4.jpg?v=11', head: { top: 0.03, chin: 0.34, x: 0.50 } },
-    { name: 'Diamond',  shape: 'gem',    tone: 'dark',  portrait: 'assets/portraits/p5.jpg?v=11', head: { top: 0.04, chin: 0.36, x: 0.46 } },
+    { name: 'Circle',   shape: 'sphere', tone: 'light', portrait: 'assets/portraits/p1.jpg?v=12', head: { top: 0.02, chin: 0.41, x: 0.50 } },
+    { name: 'Square',   shape: 'cube',   tone: 'dark',  portrait: 'assets/portraits/p2.jpg?v=12', head: { top: 0.02, chin: 0.46, x: 0.46 }, exposure: -0.12 },
+    { name: 'Triangle', shape: 'cone',   tone: 'light', portrait: 'assets/portraits/p4.jpg?v=12', head: { top: 0.03, chin: 0.34, x: 0.50 } },
+    { name: 'Diamond',  shape: 'gem',    tone: 'dark',  portrait: 'assets/portraits/p5.jpg?v=12', head: { top: 0.04, chin: 0.36, x: 0.46 } },
   ],
 
   // ---------- 持ち物 ----------
@@ -103,9 +89,9 @@ const CONFIG = {
 // main.js から呼ばれる。log(text) で書いた文は、その手番の記事の本文に載る（英文推奨）。
 // give(player, itemId) で持ち物を渡せる（入らなければ false）。stats(player) で { atk, def } が取れる。
 const RULES = {
-  // スタートを通過/到着したとき
+  // START のマスを通過/到着したとき
   onPassStart(player, { log }) {
-    log(`${player.name} passed the starting tower and begins lap ${player.laps + 1}.`);
+    log(`${player.name} passed back through the starting point.`);
   },
 
   // 止まったマスで

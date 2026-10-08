@@ -280,7 +280,7 @@ const Ledger = (() => {
     art.dataset.seat = p.id;
     art.innerHTML = `
       <h3><span class="nameplate">${chip(p)} ${p.name}</span>${p.current ? ' <i>— to play</i>' : ''}</h3>
-      <p class="stats">Square <b>${p.pos}</b> · Lap <b>${p.laps}</b> · Attack <b>${st.atk}</b> · Defence <b>${st.def}</b> · Load <b>${used}/${cols * rows}</b></p>
+      <p class="stats">Square <b>${p.pos}</b> · Attack <b>${st.atk}</b> · Defence <b>${st.def}</b> · Load <b>${used}/${cols * rows}</b></p>
       <div class="portrait-space"></div>
       <div class="slots"></div>
       <div class="bag-head">

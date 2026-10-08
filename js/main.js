@@ -1,5 +1,5 @@
 (() => {
-  const STORAGE_KEY = 'scape.squares.v2';
+  const STORAGE_KEY = 'scape.squares.v3';
   const TILE_H = 0.3;            // マスの厚み
   const TOP = TILE_H / 2;        // マス上面の高さ
   const GROUND = -TILE_H / 2;    // 影を落とす地面の高さ
@@ -9,16 +9,15 @@
 
   // ---------- コース形状 ----------
 
-  const DIR = { E: [1, 0], W: [-1, 0], S: [0, 1], N: [0, -1] };
-  const cells = [{ x: 0, z: 0 }];
-  for (const [d, n] of CONFIG.path) {
-    for (let i = 0; i < n; i++) {
-      const last = cells[cells.length - 1];
-      cells.push({ x: last.x + DIR[d][0], z: last.z + DIR[d][1] });
-    }
-  }
-  cells.pop(); // 最後は START に戻ってくるので除く
+  // マスの配置は js/map.js（マップエディタから書き出したもの）。n の順に並べる
+  const cells = [...MAP.tiles].sort((a, b) => a.n - b.n).map((t) => ({ x: t.x, z: t.y, area: t.area }));
   const N = cells.length;
+
+  // 隣り合うマス（上下左右）。駒はこのつながりに沿って歩く
+  const neighbors = cells.map((c) => cells
+    .map((o, j) => (Math.abs(o.x - c.x) + Math.abs(o.z - c.z) === 1 ? j : -1))
+    .filter((j) => j >= 0));
+  const areaOf = (i) => MAP.areas.find((a) => a.id === cells[i].area);
 
   const minX = Math.min(...cells.map((c) => c.x)), maxX = Math.max(...cells.map((c) => c.x));
   const minZ = Math.min(...cells.map((c) => c.z)), maxZ = Math.max(...cells.map((c) => c.z));
@@ -109,7 +108,7 @@
 
   // ---------- カメラ（アイソメトリック） ----------
 
-  const DEFAULT_VIEW = { angle: Math.PI * 1.25, elev: Math.PI / 6, zoom: 1.05 }; // 30° 見下ろし（2:1 アイソメ）
+  const DEFAULT_VIEW = { angle: Math.PI * 1.25, elev: Math.PI / 6, zoom: 1.25 }; // 30° 見下ろし（2:1 アイソメ）
   const view = { ...DEFAULT_VIEW };
   const ELEV_MIN = Math.PI / 18, ELEV_MAX = Math.PI / 2 - 0.01; // 10°〜ほぼ真上
   const ZOOM_MIN = 0.5, ZOOM_MAX = 4;
@@ -197,8 +196,7 @@
   // ---------- マス ----------
 
   function terrainOf(i) {
-    const z = CONFIG.zones.find(([a, b]) => i >= a && i <= b);
-    return z ? z[2] : 'grass';
+    return areaOf(i)?.terrain || 'road';
   }
 
   function defaultSquares() {
@@ -235,7 +233,7 @@
       old.userData.top.dispose();
     }
     const top = new THREE.MeshLambertMaterial({ map: Textures.tile(sq.terrain, i, sq) });
-    const side = sideMats[sq.terrain] || sideMats.grass;
+    const side = sideMats[sq.terrain] || sideMats.road;
     const mesh = new THREE.Mesh(tileGeo, [side, side, top, bottomMat, side, side]);
     mesh.position.set(cells[i].x, 0, cells[i].z);
     mesh.castShadow = mesh.receiveShadow = true;
@@ -291,52 +289,76 @@
     }
   }
 
+  const LOT = mat(0x8a8780), LOT_SIDE = mat(0x4a4843);
+  const CONCRETE = mat(0xb5b1a8), CONCRETE_D = mat(0x7d7a73), METAL = mat(0x6d7176), GLASS = mat(0x2e3236);
+  const CANVAS = mat(0xa39563), SANDBAG = mat(0xc2b48a), WHITE = mat(0xf0efea);
+
+  // エリアの真ん中に建てる建物（1 マスに収まる大きさ）
   const BUILDERS = {
-    tower() {
+    factory() {
       const g = new THREE.Group();
-      g.add(part(new THREE.CylinderGeometry(0.28, 0.32, 1.0, 8), STONE, 0, 0.5, 0));
-      g.add(part(new THREE.CylinderGeometry(0.36, 0.36, 0.12, 8), STONE_D, 0, 1.04, 0));
-      g.add(part(new THREE.ConeGeometry(0.38, 0.5, 8), ROOF_R, 0, 1.35, 0));
-      g.add(part(new THREE.BoxGeometry(0.14, 0.24, 0.05), DARK, 0, 0.12, 0.3));
-      g.add(flag(0, 1.58, 0));
+      g.add(part(new THREE.BoxGeometry(0.8, 0.45, 0.62), CONCRETE, 0, 0.225, 0.05));
+      for (let i = 0; i < 3; i++) {                                   // のこぎり屋根
+        const roof = part(new THREE.BoxGeometry(0.26, 0.04, 0.66), METAL, -0.27 + i * 0.27, 0.5, 0.05);
+        roof.rotation.z = 0.5;
+        g.add(roof);
+      }
+      g.add(part(new THREE.CylinderGeometry(0.06, 0.08, 0.95, 8), CONCRETE_D, 0.28, 0.48, -0.3));   // 煙突
+      g.add(part(new THREE.CylinderGeometry(0.05, 0.07, 0.75, 8), CONCRETE_D, 0.1, 0.38, -0.32));
+      g.add(part(new THREE.BoxGeometry(0.22, 0.24, 0.02), DARK, -0.15, 0.12, 0.37));                // 搬入口
       return g;
     },
-    castle() {
+    mall() {
       const g = new THREE.Group();
-      g.add(part(new THREE.BoxGeometry(1.1, 0.6, 1.1), STONE, 0, 0.3, 0));
-      crenels(g, 1.0, 0.65, STONE_D);
-      g.add(part(new THREE.BoxGeometry(0.55, 0.6, 0.55), STONE, 0, 0.9, 0));
-      g.add(part(new THREE.ConeGeometry(0.42, 0.5, 4), ROOF_B, 0, 1.45, 0).rotateY(Math.PI / 4));
-      for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-        g.add(part(new THREE.CylinderGeometry(0.16, 0.18, 0.9, 8), STONE, x * 0.55, 0.45, z * 0.55));
-        g.add(part(new THREE.ConeGeometry(0.22, 0.35, 8), ROOF_R, x * 0.55, 1.07, z * 0.55));
+      g.add(part(new THREE.BoxGeometry(0.86, 0.36, 0.7), CONCRETE, 0, 0.18, 0));
+      g.add(part(new THREE.BoxGeometry(0.87, 0.1, 0.71), GLASS, 0, 0.22, 0));                        // ガラスの帯
+      g.add(part(new THREE.BoxGeometry(0.5, 0.16, 0.04), WHITE, 0, 0.46, 0.33));                    // 看板
+      g.add(part(new THREE.BoxGeometry(0.3, 0.12, 0.3), CONCRETE_D, 0.18, 0.42, -0.12));             // 屋上の設備
+      return g;
+    },
+    outpost() {
+      const g = new THREE.Group();
+      const bag = new THREE.BoxGeometry(0.16, 0.08, 0.1);
+      for (let i = 0; i < 12; i++) {                                  // 土嚢の輪
+        const a = (i / 12) * Math.PI * 2;
+        for (let h = 0; h < 2; h++) {
+          const b = part(bag, SANDBAG, Math.cos(a + h * 0.26) * 0.36, 0.04 + h * 0.08, Math.sin(a + h * 0.26) * 0.36);
+          b.rotation.y = -a;
+          g.add(b);
+        }
       }
-      g.add(part(new THREE.BoxGeometry(0.26, 0.32, 0.05), DARK, 0, 0.16, 0.56));
-      g.add(part(new THREE.BoxGeometry(0.05, 0.32, 0.26), DARK, 0.56, 0.16, 0));
-      g.add(flag(0, 1.65, 0));
+      const tent = part(new THREE.ConeGeometry(0.22, 0.32, 4), CANVAS, -0.05, 0.16, 0.02);           // テント
+      tent.rotation.y = Math.PI / 4;
+      g.add(tent);
+      g.add(flag(0.18, 0, -0.14));
+      return g;
+    },
+    hospital() {
+      const g = new THREE.Group();
+      g.add(part(new THREE.BoxGeometry(0.78, 0.6, 0.6), WHITE, 0, 0.3, 0));
+      g.add(part(new THREE.BoxGeometry(0.79, 0.04, 0.61), CONCRETE_D, 0, 0.42, 0));                   // 階の線
+      g.add(part(new THREE.BoxGeometry(0.34, 0.02, 0.1), DARK, 0, 0.61, 0));                          // 屋上の十字
+      g.add(part(new THREE.BoxGeometry(0.1, 0.02, 0.34), DARK, 0, 0.61, 0));
+      g.add(part(new THREE.BoxGeometry(0.18, 0.22, 0.02), GLASS, 0, 0.11, 0.31));                     // 入口
       return g;
     },
   };
 
+
   function buildLandmarks() {
-    for (const { at, kind } of CONFIG.landmarks) {
-      const c = cells[at];
-      // コースの外側で、空いている隣のマスに建てる
-      const sx = Math.sign(c.x - center.x), sz = Math.sign(c.z - center.z);
-      const free = (x, z) => !cells.some((o) => o.x === x && o.z === z);
-      const [dx, dz] = [[sx, 0], [0, sz], [sx, sz]].find(([x, z]) => (x || z) && free(c.x + x, c.z + z)) || [sx, sz];
-      const g = BUILDERS[kind]();
-      const base = part(new THREE.BoxGeometry(1.1, TILE_H, 1.1), [sideMats.stone, sideMats.stone, STONE, bottomMat, sideMats.stone, sideMats.stone], 0, 0, 0);
+    for (const { x, y, kind } of CONFIG.landmarks) {
+      if (!BUILDERS[kind]) continue;
       const holder = new THREE.Group();
-      holder.add(base);
+      holder.add(part(new THREE.BoxGeometry(0.94, TILE_H, 0.94), [LOT_SIDE, LOT_SIDE, LOT, bottomMat, LOT_SIDE, LOT_SIDE], 0, 0, 0));
+      const g = BUILDERS[kind]();
       g.position.y = TOP;
+      g.scale.set(1.05, 1.7, 1.05); // 遠目にも分かるよう背を高く
       holder.add(g);
-      holder.position.set(c.x + dx * 1.1, 0, c.z + dz * 1.1);
-      // 正面（扉）をコースの方へ向ける
-      holder.rotation.y = Math.atan2(-dx, -dz);
+      holder.position.set(x, 0, y);
       scene.add(holder);
     }
   }
+
 
   // ---------- コマ ----------
 
@@ -419,7 +441,7 @@
 
   function setupPlayers(count) {
     piecesGroup.clear();
-    state.players = CONFIG.players.slice(0, count).map((p, id) => ({ id, ...p, pos: 0, laps: 0 }));
+    state.players = CONFIG.players.slice(0, count).map((p, id) => ({ id, ...p, pos: 0, prev: null, laps: 0 }));
     for (const p of state.players) {
       p.obj = makePiece(p);
       p.obj.position.copy(slotOf(p));
@@ -447,7 +469,7 @@
     const others = state.players.filter((p) => p !== cur && p.pos === cur.pos);
     $('locWho').innerHTML = `Location · ${chip(cur)} ${cur.name}`;
     $('locTitle').textContent = Press.placeTitle(cur.pos, sq);
-    $('locBody').textContent = Press.locationNote(cur, sq, others);
+    $('locBody').textContent = Press.locationNote(cur, sq, others, neighbors[cur.pos].length, areaOf(cur.pos));
   }
 
 
@@ -530,23 +552,49 @@
     $('rollBtn').disabled = false;
   }
 
+  // つながっているマスを 1 歩ずつ進む。来た道には戻らず、分かれ道ではプレイヤーが選ぶ
   async function movePlayer(player, steps) {
-    if (!$('stepMove').checked) {
-      const before = player.pos;
-      player.pos = (player.pos + steps) % N;
-      if (before + steps >= N) passStart(player);
-      settlePieces(player);
-      await hop(player, 1.2, 600);
-      renderPlayers();
-      return;
-    }
+    const quick = !$('stepMove').checked;
     for (let s = 0; s < steps; s++) {
-      player.pos = (player.pos + 1) % N;
+      let options = neighbors[player.pos].filter((j) => j !== player.prev);
+      if (!options.length) options = neighbors[player.pos];   // 行き止まりでは引き返す
+      if (!options.length) return;
+      const next = options.length === 1 ? options[0] : await chooseWay(player, options, steps - s);
+      player.prev = player.pos;
+      player.pos = next;
       if (player.pos === 0) passStart(player);
       settlePieces(player);
-      await hop(player);
+      await hop(player, quick ? 0.25 : 0.45, quick ? 120 : 240);
       renderPlayers();
     }
+  }
+
+  // 分かれ道：候補のマスに印を出して、クリックされるのを待つ
+  const markerGeo = new THREE.ConeGeometry(0.22, 0.45, 4).rotateX(Math.PI);
+  const markerMat = new THREE.MeshLambertMaterial({ color: 0xf2f0ea, emissive: 0x333333 });
+  function chooseWay(player, options, left) {
+    return new Promise((resolve) => {
+      const markers = options.map((j) => {
+        const m = new THREE.Mesh(markerGeo, markerMat);
+        m.castShadow = true;
+        m.position.set(cells[j].x, TOP + 0.6, cells[j].z);
+        scene.add(m);
+        return m;
+      });
+      const bob = (t) => markers.forEach((m, k) => { m.position.y = TOP + 0.75 + Math.sin(t * 4 + k) * 0.12; m.rotation.y = t; });
+      frameHooks.push(bob);
+      $('locBody').textContent = `A crossroads. ${player.name} has ${word(left).toLowerCase()} square${left > 1 ? 's' : ''} left to walk — click one of the marked squares to choose the way.`;
+      state.choosing = {
+        options,
+        pick(j) {
+          markers.forEach((m) => scene.remove(m));
+          frameHooks.splice(frameHooks.indexOf(bob), 1);
+          state.choosing = null;
+          renderLocation();
+          resolve(j);
+        },
+      };
+    });
   }
 
   function passStart(player) {
@@ -666,6 +714,7 @@
       const tile = tileAt();
       if (tile && tile.userData.index !== player.pos) {
         player.pos = tile.userData.index;
+        player.prev = null;
         publish(`${player.name} Relocated to Square ${player.pos}`,
           `By order of an unseen hand, ${player.name} was lifted from the board and set down on square ${player.pos}. No dice were consulted.`);
       }
@@ -677,7 +726,10 @@
     const clicked = e.type === 'pointerup' && orbiting && !orbiting.moved && press?.tile && tileAt() === press.tile;
     orbiting = null;
     canvas.style.cursor = '';
-    if (clicked) openSquareEditor(press.tile.userData.index);
+    if (clicked && state.choosing) {
+      const j = press.tile.userData.index;
+      if (state.choosing.options.includes(j)) state.choosing.pick(j);
+    } else if (clicked) openSquareEditor(press.tile.userData.index);
     press = null;
   }
 
@@ -690,7 +742,7 @@
 
   const dialog = $('squareDialog');
   let editing = -1;
-  let editingTerrain = 'grass';
+  let editingTerrain = 'road';
 
   function openSquareEditor(i) {
     editing = i;
