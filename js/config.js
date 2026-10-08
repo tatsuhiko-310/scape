@@ -26,6 +26,13 @@ const CONFIG = {
     { x: 11, y: 14, kind: 'hospital' },
   ],
 
+  // 盤の上に立つ人形（後でルールで動かす前提）。id で RULES から参照する
+  // x, y = 盤上の位置（マップエディタと同じ座標。マスの間の位置も可）/ scale = 大きさ（1 ≒ 1 マスの高さ）
+  // aim: 'current' なら手番のプレイヤーの方へゆっくり銃を向ける。null なら facing（度）の向きで止まる
+  figures: [
+    { id: 'sentry', kind: 'armyman', name: 'The Sentry', x: 7, y: 10, scale: 3.2, facing: 180, aim: 'current' },
+  ],
+
   // shape: 頭の形 / tone: コマの色（light=白, dark=黒）。表示は常にモノクロ
   // portrait: プレイヤーボードの背景写真（実行時にディザをかける）
   // head: 写真の中の頭の位置（画像の高さ・幅に対する割合）。top = 頭頂部, chin = 顎, x = 顔の中心
@@ -33,10 +40,10 @@ const CONFIG = {
   // exposure: 明るさの足し引き（暗い写真はプラスに）
   // assets/portraits/p3.jpg は予備
   players: [
-    { name: 'Circle',   shape: 'sphere', tone: 'light', portrait: 'assets/portraits/p1.jpg?v=12', head: { top: 0.02, chin: 0.41, x: 0.50 } },
-    { name: 'Square',   shape: 'cube',   tone: 'dark',  portrait: 'assets/portraits/p2.jpg?v=12', head: { top: 0.02, chin: 0.46, x: 0.46 }, exposure: -0.12 },
-    { name: 'Triangle', shape: 'cone',   tone: 'light', portrait: 'assets/portraits/p4.jpg?v=12', head: { top: 0.03, chin: 0.34, x: 0.50 } },
-    { name: 'Diamond',  shape: 'gem',    tone: 'dark',  portrait: 'assets/portraits/p5.jpg?v=12', head: { top: 0.04, chin: 0.36, x: 0.46 } },
+    { name: 'Circle',   shape: 'sphere', tone: 'light', portrait: 'assets/portraits/p1.jpg?v=13', head: { top: 0.02, chin: 0.41, x: 0.50 } },
+    { name: 'Square',   shape: 'cube',   tone: 'dark',  portrait: 'assets/portraits/p2.jpg?v=13', head: { top: 0.02, chin: 0.46, x: 0.46 }, exposure: -0.12 },
+    { name: 'Triangle', shape: 'cone',   tone: 'light', portrait: 'assets/portraits/p4.jpg?v=13', head: { top: 0.03, chin: 0.34, x: 0.50 } },
+    { name: 'Diamond',  shape: 'gem',    tone: 'dark',  portrait: 'assets/portraits/p5.jpg?v=13', head: { top: 0.04, chin: 0.36, x: 0.46 } },
   ],
 
   // ---------- 持ち物 ----------
@@ -88,6 +95,8 @@ const CONFIG = {
 // ルールのフック。ルールが決まったらここに処理を書く。
 // main.js から呼ばれる。log(text) で書いた文は、その手番の記事の本文に載る（英文推奨）。
 // give(player, itemId) で持ち物を渡せる（入らなければ false）。stats(player) で { atk, def } が取れる。
+// figures.get(id) で人形の状態 { x, y, facing, aim }、figures.moveTo(id, x, y) で歩かせる、
+// figures.face(id, 角度 | プレイヤー | { tile: マス番号 }) で向きを変える、figures.aimingAt(id) で銃口の先にいるプレイヤー一覧。
 const RULES = {
   // START のマスを通過/到着したとき
   onPassStart(player, { log }) {

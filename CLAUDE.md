@@ -38,6 +38,12 @@
 - 駒は上下左右につながったマスを 1 歩ずつ進む。来たマスには戻らず、行き止まりでは引き返す。
 - 分かれ道では候補のマスに印（逆さの三角）が出て、プレイヤーがクリックで選ぶ（`chooseWay`）。
 
+## 人形（figures）
+
+- `CONFIG.figures` に盤上の人形を置く（いまはマップ中央のアーミー人形 `sentry`）。形は `main.js` の `FIGURE_BUILDERS`。
+- 後でルールに使う前提。`RULES` では `figures.get / moveTo / face / setAim / aimingAt` で操作・判定する。
+- `aim: 'current'` のあいだは手番のプレイヤーの方へ銃を向け続ける。
+
 ## 公開と更新
 
 - GitHub Pages（https://tatsuhiko-310.github.io/scape/）はブランチへのプッシュで自動更新される。

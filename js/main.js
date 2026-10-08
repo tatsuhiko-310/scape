@@ -360,6 +360,153 @@
   }
 
 
+  // ---------- 人形（アーミー人形） ----------
+  // 1 単位 ≒ 人形の背丈。前（銃口）が +z。プラスチックのおもちゃらしく 1 色・つや少しあり
+  const PLASTIC = new THREE.MeshStandardMaterial({ color: 0x93a893, roughness: 0.45, metalness: 0 });
+
+  function limb(g, a, b, r) {
+    const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b);
+    const len = A.distanceTo(B);
+    const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 4, 10), PLASTIC);
+    m.position.copy(A).add(B).multiplyScalar(0.5);
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.clone().sub(A).normalize());
+    m.castShadow = m.receiveShadow = true;
+    g.add(m);
+  }
+
+  function blob(g, geo, x, y, z, rot) {
+    const m = new THREE.Mesh(geo, PLASTIC);
+    m.position.set(x, y, z);
+    if (rot) m.rotation.set(...rot);
+    m.castShadow = m.receiveShadow = true;
+    g.add(m);
+    return m;
+  }
+
+  const FIGURE_BUILDERS = {
+    armyman() {
+      const g = new THREE.Group();
+      // 台座（楕円の板）
+      blob(g, new THREE.CylinderGeometry(0.22, 0.23, 0.035, 28), 0, 0.0175, 0.01).scale.set(1, 1, 0.72);
+      // 脚：左足を前、右足を後ろに踏ん張る
+      limb(g, [-0.06, 0.42, 0.02], [-0.07, 0.25, 0.09], 0.046);
+      limb(g, [-0.07, 0.25, 0.09], [-0.075, 0.08, 0.07], 0.042);
+      limb(g, [0.06, 0.42, -0.02], [0.075, 0.25, -0.05], 0.046);
+      limb(g, [0.075, 0.25, -0.05], [0.08, 0.08, -0.11], 0.042);
+      blob(g, new THREE.BoxGeometry(0.08, 0.05, 0.13), -0.075, 0.06, 0.1);   // 靴
+      blob(g, new THREE.BoxGeometry(0.08, 0.05, 0.13), 0.08, 0.06, -0.08);
+      // 胴：少し前のめり。ベルトとポーチ
+      blob(g, new THREE.BoxGeometry(0.22, 0.25, 0.13), 0, 0.56, 0.01, [0.1, 0, 0]);
+      blob(g, new THREE.BoxGeometry(0.23, 0.05, 0.14), 0, 0.43, 0);
+      for (const x of [-0.07, 0, 0.07]) blob(g, new THREE.BoxGeometry(0.05, 0.05, 0.03), x, 0.43, 0.08);
+      // 頭とヘルメット
+      blob(g, new THREE.SphereGeometry(0.06, 14, 10), 0, 0.75, 0.03);
+      blob(g, new THREE.SphereGeometry(0.075, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), 0, 0.765, 0.02);
+      blob(g, new THREE.CylinderGeometry(0.088, 0.088, 0.012, 20), 0, 0.765, 0.025);
+      // 小銃：肩に当てて構える（銃口は +z）
+      const gun = new THREE.Group();
+      gun.position.set(-0.02, 0.655, 0);
+      blob(gun, new THREE.BoxGeometry(0.03, 0.06, 0.13), 0, -0.01, -0.02);                         // 銃床
+      blob(gun, new THREE.BoxGeometry(0.032, 0.05, 0.2), 0, 0, 0.13);                              // 機関部
+      blob(gun, new THREE.BoxGeometry(0.038, 0.042, 0.13), 0, 0, 0.29);                            // 被筒
+      blob(gun, new THREE.CylinderGeometry(0.009, 0.009, 0.16, 8), 0, 0, 0.42, [Math.PI / 2, 0, 0]); // 銃身
+      blob(gun, new THREE.BoxGeometry(0.022, 0.08, 0.035), 0, -0.06, 0.15, [0.25, 0, 0]);          // 弾倉
+      blob(gun, new THREE.BoxGeometry(0.012, 0.02, 0.09), 0, 0.04, 0.12);                          // 運搬ハンドル
+      blob(gun, new THREE.BoxGeometry(0.01, 0.035, 0.01), 0, 0.03, 0.34);                          // 照星
+      g.add(gun);
+      // 腕：右手は引き金、左手は被筒を支える
+      limb(g, [0.115, 0.65, 0], [0.15, 0.58, 0.07], 0.034);
+      limb(g, [0.15, 0.58, 0.07], [0.01, 0.635, 0.12], 0.03);
+      limb(g, [-0.115, 0.65, 0.01], [-0.1, 0.57, 0.15], 0.034);
+      limb(g, [-0.1, 0.57, 0.15], [-0.03, 0.635, 0.27], 0.03);
+      blob(g, new THREE.SphereGeometry(0.03, 10, 8), 0.01, 0.63, 0.12);
+      blob(g, new THREE.SphereGeometry(0.03, 10, 8), -0.03, 0.63, 0.27);
+      return g;
+    },
+  };
+
+  const figures = new Map(); // id -> { def, obj, x, y, facing(rad), aim }
+
+  function buildFigures() {
+    for (const def of CONFIG.figures || []) {
+      const build = FIGURE_BUILDERS[def.kind];
+      if (!build) continue;
+      const obj = build();
+      obj.scale.setScalar(def.scale || 1);
+      obj.position.set(def.x, GROUND, def.y);
+      const facing = THREE.MathUtils.degToRad(def.facing || 0);
+      obj.rotation.y = facing;
+      obj.userData.figure = def.id;
+      scene.add(obj);
+      figures.set(def.id, { def, obj, x: def.x, y: def.y, facing, aim: def.aim ?? null });
+    }
+  }
+
+  // 角度を最短回りで近づける
+  function turnToward(cur, target, k) {
+    const d = Math.atan2(Math.sin(target - cur), Math.cos(target - cur));
+    return cur + d * k;
+  }
+  const headingTo = (f, x, z) => Math.atan2(x - f.obj.position.x, z - f.obj.position.z);
+
+  frameHooks.push(() => {
+    for (const f of figures.values()) {
+      if (f.aim === 'current') {
+        const p = state.players[state.current];
+        if (p?.obj) f.facing = headingTo(f, p.obj.position.x, p.obj.position.z);
+      }
+      f.obj.rotation.y = turnToward(f.obj.rotation.y, f.facing, 0.04);
+    }
+  });
+
+  // RULES から使う人形の操作
+  const figureApi = {
+    get(id) {
+      const f = figures.get(id);
+      return f && { id, x: f.x, y: f.y, facing: THREE.MathUtils.radToDeg(f.facing), aim: f.aim };
+    },
+    // 歩かせる（盤上の座標。マスの間でもよい）
+    async moveTo(id, x, y, ms = 900) {
+      const f = figures.get(id);
+      if (!f) return;
+      const from = f.obj.position.clone(), to = new THREE.Vector3(x, GROUND, y);
+      f.facing = headingTo(f, x, y);
+      await tween(ms, (t) => {
+        f.obj.position.lerpVectors(from, to, ease(t));
+        f.obj.position.y = GROUND + Math.abs(Math.sin(t * Math.PI * 4)) * 0.08; // ぴょこぴょこ歩く
+      });
+      f.obj.position.y = GROUND;
+      f.x = x;
+      f.y = y;
+    },
+    // 向きを変える：角度（度の数値）/ プレイヤー / { tile: マス番号 }。aim を外して止める
+    face(id, target) {
+      const f = figures.get(id);
+      if (!f) return;
+      f.aim = null;
+      if (typeof target === 'number') f.facing = THREE.MathUtils.degToRad(target);
+      else if (target?.obj) f.facing = headingTo(f, target.obj.position.x, target.obj.position.z);
+      else if (cells[target?.tile]) f.facing = headingTo(f, cells[target.tile].x, cells[target.tile].z);
+    },
+    // 手番のプレイヤーを追って狙う（'current'）か、止める（null）
+    setAim(id, aim) { const f = figures.get(id); if (f) f.aim = aim; },
+    // 銃口の先（左右 spread 度以内）にいるプレイヤー。近い順
+    aimingAt(id, spread = 12) {
+      const f = figures.get(id);
+      if (!f) return [];
+      const dir = f.obj.rotation.y;
+      return state.players
+        .map((p) => {
+          const a = headingTo(f, p.obj.position.x, p.obj.position.z);
+          const off = Math.abs(Math.atan2(Math.sin(a - dir), Math.cos(a - dir)));
+          return { p, off, d: Math.hypot(p.obj.position.x - f.obj.position.x, p.obj.position.z - f.obj.position.z) };
+        })
+        .filter((o) => o.off <= THREE.MathUtils.degToRad(spread))
+        .sort((a, b) => a.d - b.d)
+        .map((o) => o.p);
+    },
+  };
+
   // ---------- コマ ----------
 
   const pawnGeo = new THREE.LatheGeometry([
@@ -853,7 +1000,7 @@
   }
 
   const word = (n) => Press.word(n);
-  const ruleApi = { log, state, give: Ledger.give, stats: Ledger.stats };
+  const ruleApi = { log, state, give: Ledger.give, stats: Ledger.stats, figures: figureApi };
   Ledger.init({ onChange: () => renderPlayers() });
 
   // ---------- ビジュアル設定（モノクロ・ディザは固定） ----------
@@ -903,9 +1050,10 @@
   resize();
   buildBoard();
   buildLandmarks();
+  buildFigures();
   reset();
   if (stage.clientWidth < 600) $('vPixel').value = 1; // 小さい画面ではドットを細かく
   applyVisual();
 
-  window.scape = { state, view, camera, cells }; // デバッグ用
+  window.scape = { state, view, camera, cells, figures: figureApi }; // デバッグ用
 })();
