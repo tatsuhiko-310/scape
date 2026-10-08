@@ -30,7 +30,7 @@ const CONFIG = {
   // x, y = 盤上の位置（マップエディタと同じ座標。マスの間の位置も可）/ scale = 大きさ（1 ≒ 1 マスの高さ）
   // aim: 'current' なら手番のプレイヤーの方へゆっくり銃を向ける。null なら facing（度）の向きで止まる
   figures: [
-    { id: 'sentry', kind: 'armyman', name: 'The Sentry', x: 7, y: 10, scale: 3.2, facing: 180, aim: 'current' },
+    { id: 'sentry', kind: 'armyman', name: 'The Sentry', x: 7, y: 10, scale: 2.0, facing: 180, aim: 'current' },
   ],
 
   // shape: 頭の形 / tone: コマの色（light=白, dark=黒）。表示は常にモノクロ
@@ -40,10 +40,10 @@ const CONFIG = {
   // exposure: 明るさの足し引き（暗い写真はプラスに）
   // assets/portraits/p3.jpg は予備
   players: [
-    { name: 'Circle',   shape: 'sphere', tone: 'light', portrait: 'assets/portraits/p1.jpg?v=13', head: { top: 0.02, chin: 0.41, x: 0.50 } },
-    { name: 'Square',   shape: 'cube',   tone: 'dark',  portrait: 'assets/portraits/p2.jpg?v=13', head: { top: 0.02, chin: 0.46, x: 0.46 }, exposure: -0.12 },
-    { name: 'Triangle', shape: 'cone',   tone: 'light', portrait: 'assets/portraits/p4.jpg?v=13', head: { top: 0.03, chin: 0.34, x: 0.50 } },
-    { name: 'Diamond',  shape: 'gem',    tone: 'dark',  portrait: 'assets/portraits/p5.jpg?v=13', head: { top: 0.04, chin: 0.36, x: 0.46 } },
+    { name: 'Circle',   shape: 'sphere', tone: 'light', portrait: 'assets/portraits/p1.jpg?v=14', head: { top: 0.02, chin: 0.41, x: 0.50 } },
+    { name: 'Square',   shape: 'cube',   tone: 'dark',  portrait: 'assets/portraits/p2.jpg?v=14', head: { top: 0.02, chin: 0.46, x: 0.46 }, exposure: -0.12 },
+    { name: 'Triangle', shape: 'cone',   tone: 'light', portrait: 'assets/portraits/p4.jpg?v=14', head: { top: 0.03, chin: 0.34, x: 0.50 } },
+    { name: 'Diamond',  shape: 'gem',    tone: 'dark',  portrait: 'assets/portraits/p5.jpg?v=14', head: { top: 0.04, chin: 0.36, x: 0.46 } },
   ],
 
   // ---------- 持ち物 ----------
