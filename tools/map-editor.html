@@ -1,0 +1,623 @@
+<title>Scape Map Desk</title>
+<style>
+  /* 編集机：左にマス目の台紙、右にエリアの台帳。SCAPE 本体と同じ墨と紙の 2 色、模様でエリアを見分ける */
+  :root {
+    --ink: #1c1b1a;
+    --paper: #f2f0ea;
+    --paper-2: #e7e4db;
+    --rule: #1c1b1a;
+    --muted: #5b5852;
+    --display: "Playfair Display", "Times New Roman", Times, serif;
+    --body: "Libre Baskerville", "Times New Roman", Times, serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+    --cell: 30px;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 14px/1.55 var(--body);
+  }
+  .desk {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 18px 28px;
+  }
+  header.top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 20px;
+    border-top: 5px solid var(--ink);
+    border-bottom: 1px solid var(--rule);
+    padding-block: 8px;
+  }
+  h1 { margin: 0; font: 900 clamp(26px, 4vw, 40px)/1.1 var(--display); text-wrap: balance; }
+  .status { font: 12px var(--mono); color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+  .status b { color: var(--ink); font-weight: 600; }
+  .lede { margin: 8px 0 16px; font-style: italic; color: var(--muted); max-width: 70ch; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+    gap: 20px 28px;
+    align-items: start;
+  }
+  .layout > * { min-width: 0; }
+  @media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+  /* ---------- 道具 ---------- */
+  .tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    padding-block: 8px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 12px;
+  }
+  .seg { display: inline-flex; border: 1px solid var(--ink); }
+  .seg button {
+    font: 13px var(--body);
+    padding: 5px 12px;
+    background: var(--paper);
+    color: var(--ink);
+    border: 0;
+    border-left: 1px solid var(--ink);
+    cursor: pointer;
+  }
+  .seg button:first-child { border-left: 0; }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+  .seg button:focus-visible, .btn:focus-visible, .area-row:focus-visible, .cell:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .size { display: inline-flex; align-items: center; gap: 6px; font: 12px var(--mono); }
+  .size input { width: 52px; font: 13px var(--mono); padding: 3px 4px; border: 1px solid var(--ink); background: var(--paper); color: var(--ink); }
+  .btn {
+    font: 13px var(--body);
+    padding: 5px 10px;
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid var(--ink);
+    cursor: pointer;
+  }
+  .btn:hover { background: var(--paper-2); }
+  .btn.solid { background: var(--ink); color: var(--paper); }
+  .btn.ghost { border-color: transparent; text-decoration: underline; text-underline-offset: 3px; }
+  .hint { font-size: 12px; color: var(--muted); margin: 0 0 8px; }
+
+  /* ---------- 台紙（マス目） ---------- */
+  .sheet-wrap { overflow: auto; border: 1px solid var(--rule); background: var(--paper); max-width: 100%; }
+  .sheet {
+    display: grid;
+    grid-template-columns: repeat(var(--cols), var(--cell));
+    grid-auto-rows: var(--cell);
+    width: max-content;
+    padding: 12px;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    background-image:
+      radial-gradient(circle, var(--muted) 0.8px, transparent 1.2px);
+    background-size: var(--cell) var(--cell);
+    background-position: 12px 12px;
+  }
+  .cell {
+    position: relative;
+    width: var(--cell);
+    height: var(--cell);
+    border: 0;
+    padding: 0;
+    background: transparent;
+    cursor: crosshair;
+  }
+  .cell.tile {
+    border: 1.5px solid var(--ink);
+    margin: 1px;
+    width: calc(var(--cell) - 2px);
+    height: calc(var(--cell) - 2px);
+    background-color: var(--paper);
+  }
+  .cell .no {
+    position: absolute;
+    left: 1px;
+    top: 1px;
+    padding: 0 2px;
+    font: 600 9px/1.2 var(--mono);
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .cell.start .no { background: var(--ink); color: var(--paper); }
+  .cell.picked { outline: 3px solid var(--ink); outline-offset: 1px; z-index: 1; }
+  .cell.pending .no { text-decoration: line-through; opacity: .5; }
+
+  /* エリアの模様（色を使わず柄で見分ける） */
+  .pat-0 { background-image: none; }
+  .pat-1 { background-image: radial-gradient(var(--ink) 1px, transparent 1.3px); background-size: 4px 4px; }
+  .pat-2 { background-image: repeating-linear-gradient(45deg, var(--ink) 0 1.2px, transparent 1.2px 5px); }
+  .pat-3 { background-image: repeating-linear-gradient(0deg, var(--ink) 0 1.2px, transparent 1.2px 5px); }
+  .pat-4 { background-image: repeating-linear-gradient(90deg, var(--ink) 0 1.2px, transparent 1.2px 5px); }
+  .pat-5 { background-image: repeating-linear-gradient(45deg, var(--ink) 0 1px, transparent 1px 6px), repeating-linear-gradient(-45deg, var(--ink) 0 1px, transparent 1px 6px); }
+  .pat-6 { background-image: repeating-conic-gradient(var(--ink) 0 25%, transparent 0 50%); background-size: 6px 6px; }
+  .pat-7 { background-image: radial-gradient(var(--ink) 1.6px, transparent 2px); background-size: 8px 8px; }
+  .pat-8 { background-image: repeating-linear-gradient(-45deg, var(--ink) 0 2.5px, transparent 2.5px 6px); }
+  .pat-9 { background-color: var(--ink) !important; }
+  .pat-none { background-image: repeating-linear-gradient(45deg, transparent 0 4px, var(--paper-2) 4px 8px); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font: 12px var(--mono); color: var(--muted); }
+
+  /* ---------- エリア台帳 ---------- */
+  aside h2 { margin: 0 0 6px; font: 700 20px/1.2 var(--display); }
+  .areas { list-style: none; margin: 0 0 10px; padding: 0; border-top: 1px solid var(--rule); }
+  .area-row {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 6px;
+    border-bottom: 1px dotted var(--rule);
+    cursor: pointer;
+  }
+  .area-row[aria-selected="true"] { background: var(--paper-2); box-shadow: inset 3px 0 0 var(--ink); }
+  .swatch { width: 26px; height: 26px; border: 1.5px solid var(--ink); background-color: var(--paper); }
+  .area-row .name { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+  .area-row .count { font: 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .editor { border: 1px solid var(--rule); padding: 12px 14px; display: grid; gap: 10px; }
+  .editor label { display: grid; gap: 4px; font: 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .editor input[type=text], .editor textarea {
+    font: 14px var(--body);
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid var(--ink);
+    padding: 6px 8px;
+    width: 100%;
+  }
+  .editor textarea { min-height: 150px; resize: vertical; line-height: 1.6; }
+  .patterns { display: flex; flex-wrap: wrap; gap: 6px; }
+  .patterns button { width: 30px; height: 30px; border: 1.5px solid var(--ink); background-color: var(--paper); cursor: pointer; padding: 0; }
+  .patterns button[aria-pressed="true"] { outline: 3px solid var(--ink); outline-offset: 2px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+  .confirm { font-size: 13px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+  .empty { padding: 14px; border: 1px dashed var(--rule); color: var(--muted); font-style: italic; }
+  .export { margin-top: 18px; border-top: 1px solid var(--rule); padding-top: 10px; }
+  .export pre { max-height: 180px; overflow: auto; background: var(--paper-2); padding: 10px; font: 11px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap">
+
+<div class="desk">
+  <header class="top">
+    <h1>Scape Map Desk</h1>
+    <span class="status" id="status">読み込み中…</span>
+  </header>
+  <p class="lede">マス目を置いてコースを描き、エリアごとに説明を書いておく台紙です。保存した内容は Claude がそのまま読めるので、「この通りにマップを作って」と指示できます。</p>
+
+  <div class="layout">
+    <section>
+      <div class="tools">
+        <div class="seg" role="group" aria-label="道具">
+          <button id="toolPaint" aria-pressed="true">置く</button>
+          <button id="toolErase" aria-pressed="false">消す</button>
+          <button id="toolOrder" aria-pressed="false">順番を付ける</button>
+        </div>
+        <span class="size">盤 <input id="cols" type="number" min="4" max="40" value="16" aria-label="横のマス数"> × <input id="rows" type="number" min="4" max="40" value="12" aria-label="縦のマス数"></span>
+        <button class="btn ghost" id="clearBtn">全部消す</button>
+      </div>
+      <p class="hint" id="toolHint">クリックかドラッグでマスを置きます。置いたマスには選んでいるエリアが付き、既にあるマスに塗るとエリアが変わります。</p>
+      <div class="confirm" id="orderBar" hidden>
+        <span id="orderInfo"></span>
+        <button class="btn solid" id="orderDone">この順番で確定</button>
+        <button class="btn" id="orderCancel">やめる</button>
+      </div>
+      <div class="confirm" id="clearBar" hidden>
+        <span>すべてのマスを消します。エリアは残ります。</span>
+        <button class="btn solid" id="clearYes">消す</button>
+        <button class="btn" id="clearNo">やめる</button>
+      </div>
+      <div class="sheet-wrap"><div class="sheet" id="sheet"></div></div>
+      <div class="legend" id="legend"></div>
+    </section>
+
+    <aside>
+      <h2>エリア</h2>
+      <ul class="areas" id="areas" role="listbox" aria-label="エリア一覧"></ul>
+      <div class="row" style="margin-bottom:12px">
+        <button class="btn" id="addArea">＋ エリアを作る</button>
+        <span class="status" id="areaHint"></span>
+      </div>
+      <div class="editor" id="editor"></div>
+
+      <div class="export">
+        <div class="row">
+          <strong>指示用のデータ</strong>
+          <button class="btn" id="copyBtn">コピー</button>
+        </div>
+        <pre id="json"></pre>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const PATTERNS = 10;
+
+  // ---------- 状態 ----------
+  let state = { cols: 16, rows: 12, tiles: [], areas: [] };
+  let current = null;        // 塗るエリア
+  let selected = null;       // 編集中のエリア
+  let tool = 'paint';
+  let order = null;          // 順番付け中の uid 配列
+  let deleting = null;       // 削除確認中のエリア id
+
+  const key = (x, y) => x + ',' + y;
+  const tileAt = (x, y) => state.tiles.find((t) => t.x === x && t.y === y);
+  const areaById = (id) => state.areas.find((a) => a.id === id);
+  const newId = () => 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+
+  function renumber() { state.tiles.forEach((t, i) => { t.n = i; }); }
+
+  // ---------- 保存（db） ----------
+  let ref = null, dirty = false, saving = false, saveTimer = 0, canWrite = true;
+
+  function setStatus(html) { $('status').innerHTML = html; }
+
+  function schedule() {
+    dirty = true;
+    renderJson();
+    if (!ref || !canWrite) return;
+    setStatus('未保存の変更があります…');
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(save, 700);
+  }
+
+  async function save() {
+    if (!ref || saving) { if (saving) saveTimer = setTimeout(save, 400); return; }
+    saving = true;
+    const body = JSON.parse(JSON.stringify({ ...state, updatedAt: new Date().toISOString() }));
+    try {
+      await ref.set(body);
+      dirty = false;
+      setStatus('<b>保存しました</b> · Claude が読めます');
+    } catch (e) {
+      if (e && e.code === 'invalid_argument') {
+        canWrite = false;
+        setStatus('この画面では保存できません（閲覧のみ）');
+      } else {
+        setStatus('保存できませんでした。少し待ってからもう一度操作してください');
+      }
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function connect() {
+    const db = window.claude?.use ? await window.claude.use('db') : null;
+    if (!db) {
+      setStatus('保存先に接続できないため、この画面での変更は保存されません');
+      render();
+      return;
+    }
+    ref = db.doc('maps/main');
+    ref.onSnapshot((snap) => {
+      if (dirty || saving) return; // 自分の編集中は上書きしない
+      if (snap.exists) {
+        const d = snap.data();
+        state = {
+          cols: d.cols || 16,
+          rows: d.rows || 12,
+          tiles: Array.isArray(d.tiles) ? d.tiles.map((t) => ({ ...t })) : [],
+          areas: Array.isArray(d.areas) ? d.areas.map((a) => ({ ...a })) : [],
+        };
+        setStatus('<b>保存済み</b> · ' + (d.updatedAt ? new Date(d.updatedAt).toLocaleString() : ''));
+      } else {
+        setStatus('まだマップがありません。マスを置くと保存が始まります');
+      }
+      if (!areaById(current)) current = state.areas[0]?.id ?? null;
+      if (!areaById(selected)) selected = current;
+      render();
+    }, () => setStatus('保存先との接続が切れました。再読み込みしてください'));
+  }
+
+  // ---------- 描画 ----------
+  function render() {
+    $('cols').value = state.cols;
+    $('rows').value = state.rows;
+    renderSheet();
+    renderAreas();
+    renderEditor();
+    renderJson();
+  }
+
+  function patClass(area) { return area ? 'pat-' + (area.pattern % PATTERNS) : 'pat-none'; }
+
+  function renderSheet() {
+    const sheet = $('sheet');
+    sheet.style.setProperty('--cols', state.cols);
+    const frag = document.createDocumentFragment();
+    const pendingSet = order ? new Map(order.map((k, i) => [k, i])) : null;
+    for (let y = 0; y < state.rows; y++) {
+      for (let x = 0; x < state.cols; x++) {
+        const c = document.createElement('button');
+        c.type = 'button';
+        c.className = 'cell';
+        c.dataset.x = x;
+        c.dataset.y = y;
+        const t = tileAt(x, y);
+        if (t) {
+          const a = areaById(t.area);
+          c.classList.add('tile', patClass(a));
+          if (t.n === 0) c.classList.add('start');
+          let label = String(t.n);
+          if (pendingSet) {
+            const k = key(x, y);
+            if (pendingSet.has(k)) { label = String(pendingSet.get(k)); c.classList.add('picked'); }
+            else c.classList.add('pending');
+          }
+          c.innerHTML = '<span class="no">' + label + '</span>';
+          c.setAttribute('aria-label', `マス ${t.n}、${a ? a.name : 'エリアなし'}、${x + 1} 列 ${y + 1} 行`);
+        } else {
+          c.setAttribute('aria-label', `空き、${x + 1} 列 ${y + 1} 行`);
+        }
+        frag.appendChild(c);
+      }
+    }
+    sheet.replaceChildren(frag);
+    const n = state.tiles.length;
+    $('legend').innerHTML = `<span>マス <b>${n}</b></span><span>0 番が START（黒札）</span><span>番号は進む順番</span>`;
+  }
+
+  function counts() {
+    const m = {};
+    for (const t of state.tiles) m[t.area] = (m[t.area] || 0) + 1;
+    return m;
+  }
+
+  function renderAreas() {
+    const ul = $('areas');
+    const cnt = counts();
+    ul.replaceChildren(...state.areas.map((a) => {
+      const li = document.createElement('li');
+      li.className = 'area-row';
+      li.tabIndex = 0;
+      li.setAttribute('role', 'option');
+      li.setAttribute('aria-selected', String(a.id === selected));
+      li.innerHTML = `<span class="swatch ${patClass(a)}"></span><span class="name"></span><span class="count">${cnt[a.id] || 0} マス${a.id === current ? ' · 塗り中' : ''}</span>`;
+      li.querySelector('.name').textContent = a.name || '（名前なし）';
+      const pick = () => { selected = a.id; current = a.id; deleting = null; renderAreas(); renderEditor(); };
+      li.addEventListener('click', pick);
+      li.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
+      return li;
+    }));
+    if (!state.areas.length) {
+      const li = document.createElement('li');
+      li.className = 'empty';
+      li.textContent = 'エリアがありません。「エリアを作る」から追加してください。エリアなしのマスは斜線で表示されます。';
+      ul.appendChild(li);
+    }
+    const none = state.tiles.filter((t) => !areaById(t.area)).length;
+    $('areaHint').textContent = none ? `エリアなし ${none} マス` : '';
+  }
+
+  function renderEditor() {
+    const ed = $('editor');
+    const a = areaById(selected);
+    if (!a) { ed.innerHTML = '<p class="hint" style="margin:0">エリアを選ぶと、名前・模様・説明を書けます。</p>'; return; }
+    ed.innerHTML = `
+      <label for="areaName">エリア名<input type="text" id="areaName" maxlength="40"></label>
+      <div><span class="hint" style="display:block;margin-bottom:4px">模様</span><div class="patterns" id="patterns"></div></div>
+      <label for="areaNotes">説明（自由記述）<textarea id="areaNotes" placeholder="例：溶岩地帯。止まると 1 回休み。敵が出やすい。雰囲気は焼け野原。"></textarea></label>
+      <div class="row" id="delRow"></div>`;
+    $('areaName').value = a.name || '';
+    $('areaNotes').value = a.notes || '';
+    $('areaName').addEventListener('input', (e) => { a.name = e.target.value; renderAreas(); schedule(); });
+    $('areaNotes').addEventListener('input', (e) => { a.notes = e.target.value; schedule(); });
+    const pats = $('patterns');
+    for (let i = 0; i < PATTERNS; i++) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pat-' + i;
+      b.setAttribute('aria-label', '模様 ' + (i + 1));
+      b.setAttribute('aria-pressed', String(a.pattern === i));
+      b.addEventListener('click', () => { a.pattern = i; renderSheet(); renderAreas(); renderEditor(); schedule(); });
+      pats.appendChild(b);
+    }
+    const del = $('delRow');
+    if (deleting === a.id) {
+      const n = counts()[a.id] || 0;
+      del.innerHTML = `<span class="confirm">「${escapeHtml(a.name || '名前なし')}」を削除します。${n ? n + ' マスはエリアなしになります。' : ''}</span>`;
+      const yes = button('削除する', 'btn solid', () => removeArea(a.id));
+      const no = button('やめる', 'btn', () => { deleting = null; renderEditor(); });
+      del.append(yes, no);
+    } else {
+      del.append(button('このエリアを削除', 'btn ghost', () => { deleting = a.id; renderEditor(); }));
+    }
+  }
+
+  function button(text, cls, fn) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = cls;
+    b.textContent = text;
+    b.addEventListener('click', fn);
+    return b;
+  }
+
+  function escapeHtml(s) { return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+  // Claude に渡す形（エリアごとのマス番号つき）
+  function exportData() {
+    return {
+      grid: { cols: state.cols, rows: state.rows },
+      tileCount: state.tiles.length,
+      tiles: state.tiles.map((t) => ({ n: t.n, x: t.x, y: t.y, area: areaById(t.area)?.name ?? null })),
+      areas: state.areas.map((a) => ({
+        name: a.name,
+        pattern: a.pattern,
+        notes: a.notes || '',
+        tiles: state.tiles.filter((t) => t.area === a.id).map((t) => t.n),
+      })),
+    };
+  }
+
+  function renderJson() { $('json').textContent = JSON.stringify(exportData(), null, 1); }
+
+  // ---------- 編集 ----------
+  function paint(x, y) {
+    const t = tileAt(x, y);
+    if (t) {
+      if (current && t.area !== current) { t.area = current; return true; }
+      return false;
+    }
+    state.tiles.push({ x, y, area: current, n: state.tiles.length });
+    return true;
+  }
+
+  function erase(x, y) {
+    const i = state.tiles.findIndex((t) => t.x === x && t.y === y);
+    if (i < 0) return false;
+    state.tiles.splice(i, 1);
+    renumber();
+    return true;
+  }
+
+  function removeArea(id) {
+    state.areas = state.areas.filter((a) => a.id !== id);
+    for (const t of state.tiles) if (t.area === id) t.area = null;
+    deleting = null;
+    current = state.areas[0]?.id ?? null;
+    selected = current;
+    render();
+    schedule();
+  }
+
+  $('addArea').addEventListener('click', () => {
+    const used = new Set(state.areas.map((a) => a.pattern));
+    let pattern = 0;
+    while (used.has(pattern) && pattern < PATTERNS - 1) pattern++;
+    const a = { id: newId(), name: 'エリア ' + (state.areas.length + 1), pattern, notes: '' };
+    state.areas.push(a);
+    current = selected = a.id;
+    deleting = null;
+    render();
+    schedule();
+    $('areaName')?.focus();
+    $('areaName')?.select();
+  });
+
+  // 盤の大きさ（はみ出したマスは消す）
+  function resizeBoard() {
+    const cols = Math.max(4, Math.min(40, Number($('cols').value) || 16));
+    const rows = Math.max(4, Math.min(40, Number($('rows').value) || 12));
+    if (cols === state.cols && rows === state.rows) return;
+    state.cols = cols;
+    state.rows = rows;
+    const before = state.tiles.length;
+    state.tiles = state.tiles.filter((t) => t.x < cols && t.y < rows);
+    if (state.tiles.length !== before) renumber();
+    renderSheet();
+    renderAreas();
+    schedule();
+  }
+  $('cols').addEventListener('change', resizeBoard);
+  $('rows').addEventListener('change', resizeBoard);
+
+  // 道具
+  const HINTS = {
+    paint: 'クリックかドラッグでマスを置きます。置いたマスには選んでいるエリアが付き、既にあるマスに塗るとエリアが変わります。',
+    erase: 'クリックかドラッグでマスを消します。番号は詰めて振り直されます。',
+    order: '進む順番にマスをクリックしていきます。最初にクリックしたマスが 0 番（START）です。選ばなかったマスは今の順番のまま後ろに続きます。',
+  };
+  function setTool(t) {
+    tool = t;
+    for (const [id, name] of [['toolPaint', 'paint'], ['toolErase', 'erase'], ['toolOrder', 'order']]) {
+      $(id).setAttribute('aria-pressed', String(name === t));
+    }
+    $('toolHint').textContent = HINTS[t];
+    order = t === 'order' ? [] : null;
+    $('orderBar').hidden = t !== 'order';
+    updateOrderInfo();
+    renderSheet();
+  }
+  $('toolPaint').addEventListener('click', () => setTool('paint'));
+  $('toolErase').addEventListener('click', () => setTool('erase'));
+  $('toolOrder').addEventListener('click', () => setTool('order'));
+
+  function updateOrderInfo() {
+    if (!order) return;
+    $('orderInfo').textContent = `${order.length} / ${state.tiles.length} マスを選びました`;
+  }
+  $('orderDone').addEventListener('click', () => {
+    const picked = order.map((k) => state.tiles.find((t) => key(t.x, t.y) === k)).filter(Boolean);
+    const rest = state.tiles.filter((t) => !picked.includes(t));
+    state.tiles = [...picked, ...rest];
+    renumber();
+    setTool('paint');
+    render();
+    schedule();
+  });
+  $('orderCancel').addEventListener('click', () => setTool('paint'));
+
+  $('clearBtn').addEventListener('click', () => { $('clearBar').hidden = false; });
+  $('clearNo').addEventListener('click', () => { $('clearBar').hidden = true; });
+  $('clearYes').addEventListener('click', () => {
+    state.tiles = [];
+    $('clearBar').hidden = true;
+    render();
+    schedule();
+  });
+
+  // ドラッグで連続して塗る / 消す
+  let stroke = null;
+  const sheet = $('sheet');
+  function cellFrom(e) {
+    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('.cell');
+    return el && sheet.contains(el) ? [Number(el.dataset.x), Number(el.dataset.y)] : null;
+  }
+  function act(x, y) {
+    if (tool === 'order') {
+      const k = key(x, y);
+      if (tileAt(x, y) && !order.includes(k)) { order.push(k); updateOrderInfo(); renderSheet(); }
+      return;
+    }
+    const changed = tool === 'erase' ? erase(x, y) : paint(x, y);
+    if (changed) { renderSheet(); renderAreas(); schedule(); }
+  }
+  sheet.addEventListener('pointerdown', (e) => {
+    const c = cellFrom(e);
+    if (!c) return;
+    e.preventDefault();
+    stroke = key(...c);
+    act(...c);
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!stroke || tool === 'order') return;
+    const c = cellFrom(e);
+    if (!c || key(...c) === stroke) return;
+    stroke = key(...c);
+    act(...c);
+  });
+  window.addEventListener('pointerup', () => { stroke = null; });
+  sheet.addEventListener('keydown', (e) => {
+    const el = e.target.closest('.cell');
+    if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); act(Number(el.dataset.x), Number(el.dataset.y)); }
+  });
+
+  $('copyBtn').addEventListener('click', () => {
+    const text = $('json').textContent;
+    navigator.clipboard?.writeText(text).then(
+      () => { $('copyBtn').textContent = 'コピーしました'; setTimeout(() => { $('copyBtn').textContent = 'コピー'; }, 1500); },
+      () => { const r = document.createRange(); r.selectNodeContents($('json')); getSelection().removeAllRanges(); getSelection().addRange(r); },
+    );
+  });
+
+  render();
+  connect();
+})();
+</script>

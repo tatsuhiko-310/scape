@@ -24,6 +24,13 @@
 - `js/dither.js` … モノクロ・ディザのポストエフェクト
 - ビルド不要。`index.html` を開けば動く（Three.js r160 は `vendor/` に同梱）
 
+## マップエディタ（指示用）
+
+- `tools/map-editor.html` を Artifact として公開している：https://claude.ai/artifact/7dhp3iQe2MUFbZArg6BjxR
+- ユーザーがマス目・エリア（模様と自由記述の説明）を編集すると、その Artifact の db の `maps/main` に保存される。
+  マップについて指示されたら `ArtifactData` の get（collection `maps`, doc_id `main`）で読んでから作業する。
+  中身：`cols`, `rows`, `tiles[{x, y, area, n}]`（n = 進む順番、0 が START）, `areas[{id, name, pattern, notes}]`。
+
 ## 公開と更新
 
 - GitHub Pages（https://tatsuhiko-310.github.io/scape/）はブランチへのプッシュで自動更新される。
